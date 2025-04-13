@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Analyst{% endblock %}</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">
+                <i class="fas fa-brain me-2"></i>AI Analyst
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'data_source_list' %}">Data Sources</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard_list' %}">Dashboards</a>
+                    </li>
+                </ul>
+                <div class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'data_source_create' %}">
+                            <i class="fas fa-upload me-1"></i>Upload Data
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#helpModal">
+                            <i class="fas fa-question-circle me-1"></i>Help
+                        </a>
+                    </li>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Messages/Alerts -->
+    <div class="container mt-3">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="container mt-4 mb-5">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-3 bg-light mt-auto">
+        <div class="container text-center">
+            <p class="mb-0 text-muted">© 2025 AI Analyst | Data Analysis and Visualization Platform</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/static/js/main.js"></script>
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Help Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="helpModalLabel"><i class="fas fa-question-circle me-2"></i>AI Analyst Help</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-upload me-2"></i>Data Upload</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Upload your CSV or Excel files for instant analysis:</p>
+                                    <ol>
+                                        <li>Click the <strong>Upload Data</strong> button in the navigation bar</li>
+                                        <li>Select your file or drag and drop it into the upload area</li>
+                                        <li>The system will automatically clean and prepare your data</li>
+                                        <li>View visualizations and insights immediately</li>
+                                    </ol>
+                                    <p><strong>Supported formats:</strong> CSV, Excel (.xlsx, .xls)</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-question me-2"></i>Ask Questions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Ask natural language questions about your data:</p>
+                                    <ul>
+                                        <li>"What are my top 10 customers by revenue?"</li>
+                                        <li>"Show me sales trends over the last 6 months"</li>
+                                        <li>"What product categories have the highest profit margin?"</li>
+                                        <li>"Compare performance across different regions"</li>
+                                    </ul>
+                                    <p>The AI will interpret your question and generate relevant visualizations and insights.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Visualizations</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>The system automatically generates the most appropriate visualizations:</p>
+                                    <ul>
+                                        <li><strong>Bar charts</strong> for categorical comparisons</li>
+                                        <li><strong>Line graphs</strong> for time series and trends</li>
+                                        <li><strong>Pie charts</strong> for composition analysis</li>
+                                        <li><strong>Scatter plots</strong> for correlation analysis</li>
+                                        <li><strong>Interactive dashboards</strong> for comprehensive views</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>AI Insights</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Our AI provides automatic analysis of your data:</p>
+                                    <ul>
+                                        <li>Key performance indicators (KPIs)</li>
+                                        <li>Trend identification and forecasting</li>
+                                        <li>Anomaly detection</li>
+                                        <li>Pattern recognition</li>
+                                        <li>Plain-language explanations of findings</li>
+                                        <li>Actionable recommendations</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'data_source_create' %}" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>Upload Your Data Now
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

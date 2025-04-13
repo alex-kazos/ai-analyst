@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ analysis.name }} - Results{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'data_source_list' %}">Data Sources</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'data_source_detail' analysis.data_source.id %}">{{ analysis.data_source.name }}</a></li>
+            <li class="breadcrumb-item active">{{ analysis.name }}</li>
+        </ol>
+    </nav>
+    
+    <!-- Analysis Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>{{ analysis.name }}</h1>
+            <p class="text-muted">{{ analysis.description|default:"No description provided" }}</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <span class="badge {% if analysis.status == 'completed' %}bg-success{% elif analysis.status == 'pending' %}bg-warning{% elif analysis.status == 'running' %}bg-info{% else %}bg-danger{% endif %} fs-6 mb-2">{{ analysis.status|title }}</span>
+            <div>
+                <small class="text-muted"><i class="far fa-calendar-alt me-1"></i> {{ analysis.created_at|date:"M d, Y" }}</small>
+                <small class="text-muted ms-3"><i class="fas fa-chart-pie me-1"></i> {{ analysis.get_analysis_type_display }}</small>
+            </div>
+        </div>
+    </div>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+        <p class="mb-0">{{ error }}</p>
+    </div>
+    {% endif %}
+    
+    {% if analysis.status == 'completed' and analysis.result %}
+        {% if analysis.analysis_type == 'quick_ai' %}
+            <!-- Quick AI Analysis Result -->
+            <div class="row">
+                <!-- Summary and Insights -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-primary bg-opacity-10">
+                            <h4 class="mb-0 text-primary"><i class="fas fa-brain me-2"></i>AI Insights</h4>
+                        </div>
+                        <div class="card-body">
+                            <h5>Summary</h5>
+                            <p>{{ analysis.result.summary }}</p>
+                            
+                            <h5>Key Insights</h5>
+                            <ul class="list-group list-group-flush">
+                                {% for insight in analysis.result.key_insights %}
+                                <li class="list-group-item">
+                                    <i class="fas fa-lightbulb text-warning me-2"></i>{{ insight }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Correlations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h4 class="mb-0 text-info"><i class="fas fa-link me-2"></i>Correlations</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Variable 1</th>
+                                            <th>Variable 2</th>
+                                            <th>Strength</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if analysis.result.correlations %}
+                                            {% for corr in analysis.result.correlations %}
+                                            <tr>
+                                                <td>{{ corr.var1 }}</td>
+                                                <td>{{ corr.var2 }}</td>
+                                                <td>{{ corr.strength }}</td>
+                                                <td>{{ corr.description }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">No correlations found</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Recommendations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-success bg-opacity-10">
+                            <h4 class="mb-0 text-success"><i class="fas fa-clipboard-check me-2"></i>Recommendations</h4>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                {% for rec in analysis.result.recommendations %}
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>{{ rec }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Visualizations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h4 class="mb-0 text-warning"><i class="fas fa-chart-line me-2"></i>Recommended Visualizations</h4>
+                        </div>
+                        <div class="card-body">
+                            {% if analysis.result.visualizations %}
+                                <div class="accordion" id="vizAccordion">
+                                    {% for viz in analysis.result.visualizations %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#viz{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="viz{{ forloop.counter }}">
+                                                {{ viz.title }}
+                                            </button>
+                                        </h2>
+                                        <div id="viz{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#vizAccordion">
+                                            <div class="accordion-body">
+                                                <p>Chart type: <span class="badge bg-secondary">{{ viz.type }}</span></p>
+                                                <p>X-axis: <strong>{{ viz.x_axis }}</strong></p>
+                                                <p>Y-axis: <strong>{{ viz.y_axis }}</strong></p>
+                                                <a href="#" class="btn btn-sm btn-outline-primary" data-x="{{ viz.x_axis }}" data-y="{{ viz.y_axis }}" data-type="{{ viz.type }}" onClick="createVisualization(this); return false;">
+                                                    <i class="fas fa-eye me-1"></i>Generate Visualization
+                                                </a>
+                                                <div class="mt-3 viz-container" id="viz-container-{{ forloop.counter }}"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center">No visualizations recommended</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Other Analysis Types Results -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Analysis Results</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Results Summary</h5>
+                            <pre class="bg-light p-3 rounded">{{ analysis.result|default:"{}"|pprint }}</pre>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Visualization</h5>
+                            <div id="result-visualization" class="border rounded p-3 text-center">
+                                <p class="text-muted">Visualization not available</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    
+    {% elif analysis.status == 'running' %}
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h3 class="mt-4">Analysis in progress...</h3>
+            <p class="text-muted">Please wait while we analyze your data. This may take a few moments.</p>
+        </div>
+    {% elif analysis.status == 'pending' %}
+        <div class="text-center py-5">
+            <i class="fas fa-hourglass-half fa-4x text-warning mb-3"></i>
+            <h3>Analysis queued</h3>
+            <p class="text-muted">Your analysis is in the queue and will start soon.</p>
+            <a href="{% url 'run_analysis' analysis.id %}" class="btn btn-primary mt-3">
+                <i class="fas fa-play-circle me-2"></i>Start Analysis Now
+            </a>
+        </div>
+    {% endif %}
+    
+    <!-- Actions -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'data_source_detail' analysis.data_source.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Data Source
+        </a>
+        
+        <div>
+            {% if analysis.status == 'completed' %}
+            <a href="#" class="btn btn-outline-success me-2">
+                <i class="fas fa-file-export me-2"></i>Export Results
+            </a>
+            <button type="button" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addToDashboardModal">
+                <i class="fas fa-plus-square me-2"></i>Add to Dashboard
+            </button>
+            {% endif %}
+            
+            {% if analysis.status == 'failed' %}
+            <a href="{% url 'run_analysis' analysis.id %}" class="btn btn-warning">
+                <i class="fas fa-sync me-2"></i>Retry Analysis
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add to Dashboard Modal -->
+<div class="modal fade" id="addToDashboardModal" tabindex="-1" aria-labelledby="addToDashboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToDashboardModalLabel">Add to Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addToDashboardForm" method="post" action="{% url 'dashboard_detail' 1 %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="analysis_id" value="{{ analysis.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="dashboardSelect" class="form-label">Select Dashboard</label>
+                        <select class="form-select" id="dashboardSelect" name="dashboard_id" required>
+                            <option value="">Choose a dashboard...</option>
+                            {% if dashboards %}
+                                {% for dashboard in dashboards %}
+                                    <option value="{{ dashboard.id }}">{{ dashboard.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <!-- For demo purposes, we'll add a test dashboard option -->
+                                <option value="1">Test Dashboard</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            <a href="{% url 'dashboard_list' %}" target="_blank">Create a new dashboard</a> if you don't see the one you want.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="widgetTitle" class="form-label">Widget Title</label>
+                        <input type="text" class="form-control" id="widgetTitle" name="widget_title" value="{{ analysis.name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="widgetSize" class="form-label">Widget Size</label>
+                        <select class="form-select" id="widgetSize" name="widget_size">
+                            <option value="small">Small (4 columns)</option>
+                            <option value="medium" selected>Medium (6 columns)</option>
+                            <option value="large">Large (8 columns)</option>
+                            <option value="full">Full Width (12 columns)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addToDashboardBtn">Add to Dashboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Handle add to dashboard button
+    document.addEventListener('DOMContentLoaded', function() {
+        const addToDashboardBtn = document.getElementById('addToDashboardBtn');
+        if (addToDashboardBtn) {
+            addToDashboardBtn.addEventListener('click', function() {
+                // Get form values
+                const dashboardId = document.getElementById('dashboardSelect').value;
+                const widgetTitle = document.getElementById('widgetTitle').value;
+                
+                if (!dashboardId) {
+                    alert('Please select a dashboard');
+                    return;
+                }
+                
+                if (!widgetTitle) {
+                    alert('Please enter a widget title');
+                    return;
+                }
+                
+                // For demo purposes, we'll redirect to the dashboard
+                // In a real application, this would submit the form via AJAX
+                const form = document.getElementById('addToDashboardForm');
+                
+                // Change the form action to point to the selected dashboard
+                form.action = form.action.replace(/\d+$/, dashboardId);
+                
+                // Submit the form
+                form.submit();
+            });
+        }
+    });
+    
+    function createVisualization(element) {
+        const xAxis = element.getAttribute('data-x');
+        const yAxis = element.getAttribute('data-y');
+        const chartType = element.getAttribute('data-type');
+        const containerId = element.parentNode.querySelector('.viz-container').id;
+        
+        // In a real application, you would fetch the actual data here
+        // For demo purposes, we'll create a random chart
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<canvas></canvas>';
+        const canvas = container.querySelector('canvas');
+        
+        // Sample data
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: yAxis,
+                data: [65, 59, 80, 81, 56],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            }]
+        };
+        
+        // Create the chart
+        let chartConfig = {
+            type: chartType === 'bar' ? 'bar' : 
+                  chartType === 'line' ? 'line' : 
+                  chartType === 'pie' ? 'pie' : 'scatter',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: `${yAxis} by ${xAxis}`
+                    }
+                }
+            },
+        };
+        
+        new Chart(canvas, chartConfig);
+    }
+</script>
+{% endblock %}
