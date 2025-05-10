@@ -111,6 +111,50 @@ def data_source_create(request):
 
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.http import JsonResponse
+
+@require_POST
+def data_source_rename(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    new_name = request.POST.get('name', '').strip()
+    if not new_name:
+        return JsonResponse({'success': False, 'error': 'Name cannot be empty.'}, status=400)
+    ds.name = new_name
+    ds.save()
+    return JsonResponse({'success': True, 'name': ds.name})
+
+@require_POST
+def data_source_update_description(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    desc = request.POST.get('description', '').strip()
+    ds.description = desc
+    ds.save()
+    return JsonResponse({'success': True, 'description': ds.description or 'No description provided'})
+
+@require_POST
+def data_source_update_file(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
+    ds.file = file
+    ds.save()
+    return JsonResponse({'success': True})
+
+def data_source_edit(request, pk):
+    data_source = get_object_or_404(DataSource, pk=pk)
+    if request.method == 'POST':
+        form = DataSourceForm(request.POST, request.FILES, instance=data_source)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Data source updated successfully!')
+            return redirect('data_source_detail', pk=data_source.pk)
+    else:
+        form = DataSourceForm(instance=data_source)
+    return render(request, 'analyst/data_source_form.html', {'form': form, 'data_source': data_source, 'edit_mode': True})
 
 def data_source_delete(request, pk):
     from .models import DataSource

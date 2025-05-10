@@ -13,8 +13,26 @@
                     <li class="breadcrumb-item active">{{ data_source.name }}</li>
                 </ol>
             </nav>
-            <h1 class="h2 mb-1">{{ data_source.name }}</h1>
-            <p class="text-muted">{{ data_source.description|default:"No description provided" }}</p>
+            <h1 class="h2 mb-1" id="ds-name-display">{{ data_source.name }} <button id="rename-save-btn" class="btn btn-link btn-sm d-none" onclick="saveRename()"><i class="fas fa-check text-success"></i></button><button id="rename-cancel-btn" class="btn btn-link btn-sm d-none" onclick="cancelRename()"><i class="fas fa-times text-danger"></i></button></h1>
+<div id="ds-name-edit-row" class="d-none" style="max-width:500px; margin-bottom:1rem; position:relative;">
+  <div style="position:relative;">
+    <input type="text" id="ds-name-input" class="form-control form-control-lg pr-5" value="{{ data_source.name }}" style="max-width:350px; padding-right:70px;">
+    <div style="position:absolute; top:50%; right:10px; transform:translateY(-50%); display:flex; gap:0.25rem;">
+      <button id="rename-save-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="saveRename()" tabindex="0" title="Save" aria-label="Save" style="box-shadow:none;"><i class="fas fa-check"></i></button>
+      <button id="rename-cancel-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="cancelRename()" tabindex="0" title="Cancel" aria-label="Cancel" style="box-shadow:none;"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+</div>
+<p class="text-muted" id="ds-desc-display">{{ data_source.description|default:"No description provided" }} <button id="desc-save-btn" class="btn btn-link btn-sm d-none" onclick="saveDescription()"><i class="fas fa-check text-success"></i></button><button id="desc-cancel-btn" class="btn btn-link btn-sm d-none" onclick="cancelDescription()"><i class="fas fa-times text-danger"></i></button></p>
+<div id="ds-desc-edit-row" class="d-none" style="max-width:500px; position:relative;">
+  <div style="position:relative;">
+    <textarea id="ds-desc-input" class="form-control pr-5" rows="2" style="max-width:400px; padding-right:70px;"></textarea>
+    <div style="position:absolute; top:50%; right:10px; transform:translateY(-50%); display:flex; gap:0.25rem;">
+      <button id="desc-save-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="saveDescription()" tabindex="0" title="Save" aria-label="Save" style="box-shadow:none;"><i class="fas fa-check"></i></button>
+      <button id="desc-cancel-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="cancelDescription()" tabindex="0" title="Cancel" aria-label="Cancel" style="box-shadow:none;"><i class="fas fa-times"></i></button>
+    </div>
+  </div>
+</div>
         </div>
         <div class="d-flex align-items-center">
             <a href="{% url 'question_form' data_source.id %}" class="btn btn-primary me-2">
@@ -28,9 +46,9 @@
                     <i class="fas fa-ellipsis-v"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dataSourceActions">
-                    <li><a class="dropdown-item" href="#" onclick="alert('Rename coming soon!'); return false;">Rename</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="alert('Change Description coming soon!'); return false;">Change Description</a></li>
-                    <li><a class="dropdown-item" href="#" onclick="alert('Update Dataset coming soon!'); return false;">Update Dataset</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="showRenameInput(); return false;">Rename</a></li>
+<li><a class="dropdown-item" href="#" onclick="showDescriptionInput(); return false;">Change Description</a></li>
+<li><a class="dropdown-item" href="#" onclick="showFileModal(); return false;">Update Data Source</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li>
                         <form id="deleteDataSourceForm" method="post" action="{% url 'data_source_delete' data_source.id %}" style="margin-bottom: 0;">
@@ -324,6 +342,137 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
+<!-- Modal for file upload -->
+<div class="modal fade" id="updateFileModal" tabindex="-1" aria-labelledby="updateFileModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="updateFileModalLabel">Update Data Source File</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="updateFileForm" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="updateFileInput" class="form-label">Upload New CSV File</label>
+            <input type="file" class="form-control" id="updateFileInput" name="file" accept=".csv">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveFileUpdate()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- Inline Rename ---
+function showRenameInput() {
+  document.getElementById('ds-name-display').classList.add('d-none');
+  document.getElementById('ds-name-edit-row').classList.remove('d-none');
+  const input = document.getElementById('ds-name-input');
+  input.focus();
+  input.select();
+  input.onkeydown = function(e) {
+    if (e.key === 'Enter') { saveRename(); }
+    if (e.key === 'Escape') { cancelRename(); }
+  };
+}
+function cancelRename() {
+  document.getElementById('ds-name-edit-row').classList.add('d-none');
+  document.getElementById('ds-name-display').classList.remove('d-none');
+}
+function saveRename() {
+  const newName = document.getElementById('ds-name-input').value;
+  const pk = {{ data_source.id }};
+  fetch(`/data-sources/${pk}/rename/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCSRFToken(),
+      'Accept': 'application/json',
+    },
+    body: new URLSearchParams({name: newName})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('ds-name-display').childNodes[0].nodeValue = data.name + ' ';
+      cancelRename();
+    } else {
+      showError(data.error || 'Failed to rename.');
+    }
+  }).catch(() => showError('Failed to rename.'));
+}
+// --- Inline Description ---
+function showDescriptionInput() {
+  const desc = document.getElementById('ds-desc-display').childNodes[0].nodeValue.trim();
+  document.getElementById('ds-desc-display').classList.add('d-none');
+  document.getElementById('ds-desc-edit-row').classList.remove('d-none');
+  const textarea = document.getElementById('ds-desc-input');
+  textarea.value = desc === 'No description provided' ? '' : desc;
+  textarea.focus();
+  textarea.onkeydown = function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveDescription(); }
+    if (e.key === 'Escape') { cancelDescription(); }
+  };
+}
+function cancelDescription() {
+  document.getElementById('ds-desc-edit-row').classList.add('d-none');
+  document.getElementById('ds-desc-display').classList.remove('d-none');
+}
+function saveDescription() {
+  const newDesc = document.getElementById('ds-desc-input').value;
+  const pk = {{ data_source.id }};
+  fetch(`/data-sources/${pk}/update-description/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': getCSRFToken(),
+      'Accept': 'application/json',
+    },
+    body: new URLSearchParams({description: newDesc})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('ds-desc-display').childNodes[0].nodeValue = data.description;
+      cancelDescription();
+    } else {
+      showError(data.error || 'Failed to update description.');
+    }
+  }).catch(() => showError('Failed to update description.'));
+}
+// --- File Modal ---
+function showFileModal() {
+  var modal = new bootstrap.Modal(document.getElementById('updateFileModal'));
+  modal.show();
+}
+function saveFileUpdate() {
+  const pk = {{ data_source.id }};
+  const form = document.getElementById('updateFileForm');
+  const fileInput = document.getElementById('updateFileInput');
+  if (!fileInput.files.length) return;
+  const fd = new FormData();
+  fd.append('file', fileInput.files[0]);
+  fetch(`/data-sources/${pk}/update-file/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCSRFToken()},
+    body: fd
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      var modal = bootstrap.Modal.getInstance(document.getElementById('updateFileModal'));
+      modal.hide();
+      // Optionally reload or show a success message
+      location.reload();
+    } else {
+      showError(data.error || 'Failed to update file.');
+    }
+  }).catch(() => showError('Failed to update file.'));
+}
+</script>
 <script>
     let distributionChart = null;
     let valueCountsChart = null;

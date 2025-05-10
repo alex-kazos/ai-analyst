@@ -157,28 +157,106 @@
                     </div>
                 </div>
             </div>
-        {% else %}
-            <!-- Other Analysis Types Results -->
-            <div class="card shadow-sm mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Analysis Results</h4>
+        {% elif analysis.analysis_type == 'clustering' %}
+    <!-- Clustering Analysis Results -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Clustering Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h5>What does this mean?</h5>
+                <p>This analysis grouped your data points into clusters based on their similarity. Each cluster represents a group of records that are more similar to each other than to those in other clusters.</p>
+            </div>
+            <div class="mb-3">
+                <h5>Cluster Sizes</h5>
+                {% if analysis.result.cluster_counts %}
+                <table class="table table-sm w-auto">
+                    <thead><tr><th>Cluster</th><th>Count</th></tr></thead>
+                    <tbody>
+                    {% for cluster, count in analysis.result.cluster_counts.items %}
+                        <tr><td>{{ cluster }}</td><td>{{ count }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted">No clusters found.</p>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <h5>Features Used</h5>
+                <p>{{ analysis.result.features_used|join:', ' }}</p>
+            </div>
+            <div class="mb-3">
+                <h5>Sample Data</h5>
+                {% if analysis.result.sample_data %}
+                <div style="max-height: 200px; overflow:auto;">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                {% for key in analysis.result.sample_data.0.keys %}
+                                    <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in analysis.result.sample_data|slice:":5" %}
+                                <tr>
+                                    {% for val in row.values %}
+                                        <td>{{ val }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h5>Results Summary</h5>
-                            <pre class="bg-light p-3 rounded">{{ analysis.result|default:"{}"|pprint }}</pre>
-                        </div>
-                        <div class="col-md-6">
-                            <h5>Visualization</h5>
-                            <div id="result-visualization" class="border rounded p-3 text-center">
-                                <p class="text-muted">Visualization not available</p>
-                            </div>
-                        </div>
+                {% else %}
+                <p class="text-muted">No sample data available.</p>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <h5>Cluster Visualization</h5>
+                {% if analysis.result.plot_features and analysis.result.sample_data %}
+                <div id="cluster-viz" style="height:350px;"></div>
+                <div class="form-text">Each point represents a row in your data, colored by its assigned cluster. This helps you see how well-separated the clusters are.</div>
+                <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+                <script src="/static/js/cluster_viz.js"></script>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const sampleData = {{ analysis.result.sample_data|safe }};
+                    const xKey = '{{ analysis.result.plot_features.0 }}';
+                    const yKey = '{{ analysis.result.plot_features.1 }}';
+                    renderClusterScatterPlot('cluster-viz', sampleData, xKey, yKey, 'cluster');
+                });
+                </script>
+                {% else %}
+                <p class="text-muted">Visualization not available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <!-- Other Analysis Types Results -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Analysis Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Results Summary</h5>
+                    <pre class="bg-light p-3 rounded">{{ analysis.result|default:"{}"|pprint }}</pre>
+                </div>
+                <div class="col-md-6">
+                    <h5>Visualization</h5>
+                    <div id="result-visualization" class="border rounded p-3 text-center">
+                        <p class="text-muted">Visualization not available</p>
                     </div>
                 </div>
             </div>
-        {% endif %}
+        </div>
+    </div>
+{% endif %}
     
     {% elif analysis.status == 'running' %}
         <div class="text-center py-5">

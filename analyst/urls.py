@@ -9,7 +9,11 @@ urlpatterns = [
     path('data-sources/', views.data_source_list, name='data_source_list'),
     path('data-sources/new/', views.data_source_create, name='data_source_create'),
     path('data-sources/<int:pk>/', views.data_source_detail, name='data_source_detail'),
+    path('data-sources/<int:pk>/edit/', views.data_source_edit, name='data_source_edit'),
     path('data-sources/<int:pk>/delete/', views.data_source_delete, name='data_source_delete'),
+    path('data-sources/<int:pk>/rename/', views.data_source_rename, name='data_source_rename'),
+    path('data-sources/<int:pk>/update-description/', views.data_source_update_description, name='data_source_update_description'),
+    path('data-sources/<int:pk>/update-file/', views.data_source_update_file, name='data_source_update_file'),
     
     # Analysis routes
     path('data-sources/<int:data_source_id>/analysis/new/', views.analysis_create, name='analysis_create'),
