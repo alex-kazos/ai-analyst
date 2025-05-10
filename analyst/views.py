@@ -297,6 +297,48 @@ def analysis_create(request, data_source_id):
     
     return render(request, 'analyst/analysis_form.html', {'form': form, 'data_source': data_source})
 
+@require_POST
+def analysis_rename(request, pk):
+    analysis = get_object_or_404(Analysis, pk=pk)
+    import json
+    try:
+        data = json.loads(request.body)
+        new_name = data.get('name', '').strip()
+        if not new_name:
+            return JsonResponse({'success': False, 'error': 'Name cannot be empty.'}, status=400)
+        analysis.name = new_name
+        analysis.save()
+        return JsonResponse({'success': True, 'name': analysis.name})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@require_POST
+def analysis_update_description(request, pk):
+    analysis = get_object_or_404(Analysis, pk=pk)
+    import json
+    try:
+        data = json.loads(request.body)
+        desc = data.get('description', '').strip()
+        analysis.description = desc
+        analysis.save()
+        return JsonResponse({'success': True, 'description': analysis.description})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@require_POST
+def analysis_delete(request, pk):
+    import logging
+    analysis = get_object_or_404(Analysis, pk=pk)
+    try:
+        # Proactively delete related DashboardItems
+        analysis.dashboard_items.all().delete()
+        analysis.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        logging.exception(f"Failed to delete analysis {pk}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
 def run_analysis(request, pk):
     analysis = get_object_or_404(Analysis, pk=pk)
     data_source = analysis.data_source
@@ -350,13 +392,23 @@ def run_analysis(request, pk):
             result = run_custom_analysis(df, analysis)
         
         # Save the result
-        analysis.result = result
+        if result is None:
+            analysis.result = None
+        else:
+            analysis.result = result
         analysis.status = 'completed'
         analysis.save()
         
     except Exception as e:
-        error = str(e)
+        # User-friendly error for classification/regression
+        if analysis.analysis_type == 'classification':
+            error = 'Classification not possible. Try another analysis method.'
+        elif analysis.analysis_type == 'regression':
+            error = 'Regression analysis not possible. Try another analysis method.'
+        else:
+            error = str(e)
         analysis.status = 'failed'
+        analysis.result = {"error": error}  # Ensure valid JSON for the result field
         analysis.save()
     
     # Get a list of dashboards for the 'Add to Dashboard' modal
@@ -438,18 +490,25 @@ def run_clustering_analysis(df, analysis):
 
 def run_classification_analysis(df, analysis):
     # Classification analysis implementation
-    # For now, just return a placeholder
+    # For now, just return a placeholder with only JSON-serializable types
+    try:
+        preview = df.head(5).to_dict('records')
+    except Exception:
+        preview = []
     return {
         'message': 'Classification analysis not implemented yet',
-        'preview': df.head(5).to_dict('records')
+        'preview': preview
     }
 
 def run_regression_analysis(df, analysis):
-    # Regression analysis implementation
-    # For now, just return a placeholder
+    # Always return a valid JSON-serializable object and handle errors
+    try:
+        preview = df.head(5).to_dict('records')
+    except Exception:
+        preview = []
     return {
-        'message': 'Regression analysis not implemented yet',
-        'preview': df.head(5).to_dict('records')
+        'message': 'Regression analysis not possible. Try another analysis method.',
+        'preview': preview
     }
 
 def run_timeseries_analysis(df, analysis):
@@ -464,20 +523,25 @@ def run_statistical_analysis(df, analysis):
     # Get parameters with defaults
     params = analysis.parameters or {}
     column = params.get('column', df.select_dtypes(include=[np.number]).columns[0] if not df.empty else None)
-    
     if not column:
         return {'error': 'No numeric column available for analysis'}
-    
     # Basic statistics
     stats = df[column].describe().to_dict()
-    
     # Histogram data
     hist_values, hist_bins = np.histogram(df[column].dropna(), bins=10)
     histogram = {
         'values': hist_values.tolist(),
         'bins': hist_bins.tolist(),
     }
-    
+    # Box plot data
+    box = {
+        'min': float(df[column].min()),
+        'q1': float(df[column].quantile(0.25)),
+        'median': float(df[column].median()),
+        'q3': float(df[column].quantile(0.75)),
+        'max': float(df[column].max()),
+        'outliers': df[(df[column] < df[column].quantile(0.25) - 1.5 * (df[column].quantile(0.75) - df[column].quantile(0.25))) | (df[column] > df[column].quantile(0.75) + 1.5 * (df[column].quantile(0.75) - df[column].quantile(0.25)))][column].tolist()
+    }
     # Additional statistical measures
     additional_stats = {
         'skewness': float(df[column].skew()),
@@ -485,14 +549,23 @@ def run_statistical_analysis(df, analysis):
         'median': float(df[column].median()),
         'mode': float(df[column].mode().iloc[0]) if not df[column].mode().empty else None,
     }
-    
-    # Combining results
+    # Combine results in a user-friendly structure
     result = {
-        'basic_stats': stats,
-        'histogram': histogram,
+        'column': column,
+        'basic_stats': {
+            'count': stats.get('count'),
+            'mean': stats.get('mean'),
+            'std': stats.get('std'),
+            'min': stats.get('min'),
+            '25%': stats.get('25%'),
+            '50%': stats.get('50%'),
+            '75%': stats.get('75%'),
+            'max': stats.get('max'),
+        },
         'additional_stats': additional_stats,
+        'histogram': histogram,
+        'boxplot': box
     }
-    
     return result
 
 def run_custom_analysis(df, analysis):

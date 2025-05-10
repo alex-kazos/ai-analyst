@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('analysis/<int:pk>/rename/', views.analysis_rename, name='analysis_rename'),
+    path('analysis/<int:pk>/update-description/', views.analysis_update_description, name='analysis_update_description'),
+    path('analysis/<int:pk>/delete/', views.analysis_delete, name='analysis_delete'),
     # Home
     path('', views.home, name='home'),
     
