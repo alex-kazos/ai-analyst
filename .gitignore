@@ -48,6 +48,9 @@ ENV/
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Analyst AI cache
+analyst/.cache/
+
 # Mac OS
 .DS_Store
 

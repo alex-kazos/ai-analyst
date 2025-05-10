@@ -16,13 +16,32 @@
             <h1 class="h2 mb-1">{{ data_source.name }}</h1>
             <p class="text-muted">{{ data_source.description|default:"No description provided" }}</p>
         </div>
-        <div class="d-flex">
+        <div class="d-flex align-items-center">
             <a href="{% url 'question_form' data_source.id %}" class="btn btn-primary me-2">
                 <i class="fas fa-question-circle me-2"></i>Ask Questions
             </a>
             <a href="{% url 'analysis_create' data_source.id %}" class="btn btn-outline-primary me-2">
                 <i class="fas fa-chart-line me-2"></i>Create Analysis
             </a>
+            <div class="dropdown">
+                <button class="btn btn-link p-0 ms-1" type="button" id="dataSourceActions" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 1.6rem;">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dataSourceActions">
+                    <li><a class="dropdown-item" href="#" onclick="alert('Rename coming soon!'); return false;">Rename</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="alert('Change Description coming soon!'); return false;">Change Description</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="alert('Update Dataset coming soon!'); return false;">Update Dataset</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form id="deleteDataSourceForm" method="post" action="{% url 'data_source_delete' data_source.id %}" style="margin-bottom: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger" onclick="return confirm('Are you sure you want to delete this data source? This action cannot be undone.');">
+                                <i class="fas fa-trash-alt me-2"></i>Delete
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -82,13 +101,9 @@
         <div class="col-md-4">
             <!-- Data Source Information -->
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Data Source Information</h5>
-                </div>
-                <div class="card-body">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-5">Source Type</dt>
-                        <dd class="col-sm-7">{{ data_source.get_source_type_display }}</dd>
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Data Source Information</h5>
 
                         <dt class="col-sm-5">Created</dt>
                         <dd class="col-sm-7">{{ data_source.created_at|date:"M d, Y" }}</dd>
