@@ -12,11 +12,7 @@ def get_file_path(instance, filename):
 
 class DataSource(models.Model):
     TYPE_CHOICES = [
-        ('file', 'File Upload'),
-        ('mysql', 'MySQL Database'),
-        ('postgresql', 'PostgreSQL Database'),
-        ('supabase', 'Supabase'),
-        ('other', 'Other Database')
+        ('file', 'File Upload (CSV, Excel, JSON)')
     ]
     
     name = models.CharField(max_length=255)
@@ -31,17 +27,7 @@ class DataSource(models.Model):
     file_type = models.CharField(max_length=20, blank=True, null=True)  # csv, excel, etc.
     
     # For database connections
-    host = models.CharField(max_length=255, blank=True, null=True)
-    port = models.IntegerField(blank=True, null=True)
-    database = models.CharField(max_length=255, blank=True, null=True)
-    username = models.CharField(max_length=255, blank=True, null=True)
-    password = models.CharField(max_length=255, blank=True, null=True)
-    connection_string = models.TextField(blank=True, null=True)  # Optional for complex connections
-    
-    # For API connections like Supabase
-    api_key = models.CharField(max_length=255, blank=True, null=True)
-    api_url = models.URLField(blank=True, null=True)
-    
+
     def __str__(self):
         return self.name
     

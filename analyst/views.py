@@ -21,9 +21,44 @@ from .forms import DataSourceForm, AnalysisForm, DashboardForm, QuestionForm
 import openai
 from langchain.sql_database import SQLDatabase
 from langchain.chains import create_sql_query_chain
+from django.views.decorators.http import require_GET
 
 # Set up OpenAI API key
 openai.api_key = settings.OPENAI_API_KEY
+
+@require_GET
+def api_data_source_ai_analysis(request, pk):
+    from .ai_utils import perform_ai_analysis
+    import json
+    data_source = get_object_or_404(DataSource, pk=pk)
+    try:
+        # Load data
+        if data_source.source_type == 'file' and data_source.file:
+            import pandas as pd
+            if data_source.file_type == 'csv':
+                try:
+                    df = pd.read_csv(data_source.file.path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(data_source.file.path, encoding='latin1')
+            elif data_source.file_type in ['xls', 'xlsx']:
+                df = pd.read_excel(data_source.file.path)
+            elif data_source.file_type == 'json':
+                df = pd.read_json(data_source.file.path)
+            else:
+                return JsonResponse({'error': 'Unsupported file type'}, status=400)
+        else:
+            return JsonResponse({'error': 'Unsupported data source type'}, status=400)
+        selected_column = request.GET.get('column')
+        ai_result = perform_ai_analysis(df, analysis_type="quick_ai", query=selected_column)
+        return JsonResponse({
+            "insights": ai_result.get('key_insights', []),
+            "recommendations": ai_result.get('recommendations', []),
+            "visualizations": ai_result.get('visualizations', []),
+            "numeric_columns": ai_result.get('numeric_columns', []),
+            "selected_column": ai_result.get('selected_column'),
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 # Home view
 def home(request):
@@ -74,6 +109,64 @@ def data_source_create(request):
     
     return render(request, 'analyst/data_source_form.html', {'form': form})
 
+from django.views.decorators.http import require_POST
+from django.urls import reverse
+from django.http import JsonResponse
+
+@require_POST
+def data_source_rename(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    new_name = request.POST.get('name', '').strip()
+    if not new_name:
+        return JsonResponse({'success': False, 'error': 'Name cannot be empty.'}, status=400)
+    ds.name = new_name
+    ds.save()
+    return JsonResponse({'success': True, 'name': ds.name})
+
+@require_POST
+def data_source_update_description(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    desc = request.POST.get('description', '').strip()
+    ds.description = desc
+    ds.save()
+    return JsonResponse({'success': True, 'description': ds.description or 'No description provided'})
+
+@require_POST
+def data_source_update_file(request, pk):
+    from .models import DataSource
+    ds = get_object_or_404(DataSource, pk=pk)
+    file = request.FILES.get('file')
+    if not file:
+        return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
+    ds.file = file
+    ds.save()
+    return JsonResponse({'success': True})
+
+def data_source_edit(request, pk):
+    data_source = get_object_or_404(DataSource, pk=pk)
+    if request.method == 'POST':
+        form = DataSourceForm(request.POST, request.FILES, instance=data_source)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Data source updated successfully!')
+            return redirect('data_source_detail', pk=data_source.pk)
+    else:
+        form = DataSourceForm(instance=data_source)
+    return render(request, 'analyst/data_source_form.html', {'form': form, 'data_source': data_source, 'edit_mode': True})
+
+def data_source_delete(request, pk):
+    from .models import DataSource
+    from django.contrib import messages
+    from django.shortcuts import redirect, get_object_or_404
+    if request.method == 'POST':
+        ds = get_object_or_404(DataSource, pk=pk)
+        ds.delete()
+        messages.success(request, 'Data source deleted successfully!')
+        return redirect('data_source_list')
+    return redirect('data_source_detail', pk=pk)
+
 def data_source_detail(request, pk):
     data_source = get_object_or_404(DataSource, pk=pk)
     
@@ -86,7 +179,10 @@ def data_source_detail(request, pk):
         # For file-based data sources
         if data_source.source_type == 'file' and data_source.file:
             if data_source.file_type == 'csv':
-                df = pd.read_csv(data_source.file.path)
+                try:
+                    df = pd.read_csv(data_source.file.path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(data_source.file.path, encoding='latin1')
             elif data_source.file_type in ['xls', 'xlsx']:
                 df = pd.read_excel(data_source.file.path)
             elif data_source.file_type == 'json':
@@ -124,12 +220,26 @@ def data_source_detail(request, pk):
     # Get analyses for this data source
     analyses = Analysis.objects.filter(data_source=data_source)
     
+    # AI-generated insights using OpenAI (or fallback)
+    from .ai_utils import perform_ai_analysis
+    insights = []
+    recommendations = []
+    visualizations = []
+    if 'df' in locals():
+        ai_result = perform_ai_analysis(df, analysis_type="quick_ai")
+        insights = ai_result.get('key_insights', [])
+        recommendations = ai_result.get('recommendations', [])
+        visualizations = ai_result.get('visualizations', [])
+    import json
     context = {
         'data_source': data_source,
         'preview_data': preview_data,
         'columns': columns,
         'error': error,
-        'analyses': analyses
+        'analyses': analyses,
+        'insights': insights,
+        'recommendations': recommendations,
+        'visualizations': json.dumps(visualizations)
     }
     
     return render(request, 'analyst/data_source_detail.html', context)
@@ -187,6 +297,48 @@ def analysis_create(request, data_source_id):
     
     return render(request, 'analyst/analysis_form.html', {'form': form, 'data_source': data_source})
 
+@require_POST
+def analysis_rename(request, pk):
+    analysis = get_object_or_404(Analysis, pk=pk)
+    import json
+    try:
+        data = json.loads(request.body)
+        new_name = data.get('name', '').strip()
+        if not new_name:
+            return JsonResponse({'success': False, 'error': 'Name cannot be empty.'}, status=400)
+        analysis.name = new_name
+        analysis.save()
+        return JsonResponse({'success': True, 'name': analysis.name})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@require_POST
+def analysis_update_description(request, pk):
+    analysis = get_object_or_404(Analysis, pk=pk)
+    import json
+    try:
+        data = json.loads(request.body)
+        desc = data.get('description', '').strip()
+        analysis.description = desc
+        analysis.save()
+        return JsonResponse({'success': True, 'description': analysis.description})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@require_POST
+def analysis_delete(request, pk):
+    import logging
+    analysis = get_object_or_404(Analysis, pk=pk)
+    try:
+        # Proactively delete related DashboardItems
+        analysis.dashboard_items.all().delete()
+        analysis.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        logging.exception(f"Failed to delete analysis {pk}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
 def run_analysis(request, pk):
     analysis = get_object_or_404(Analysis, pk=pk)
     data_source = analysis.data_source
@@ -240,13 +392,23 @@ def run_analysis(request, pk):
             result = run_custom_analysis(df, analysis)
         
         # Save the result
-        analysis.result = result
+        if result is None:
+            analysis.result = None
+        else:
+            analysis.result = result
         analysis.status = 'completed'
         analysis.save()
         
     except Exception as e:
-        error = str(e)
+        # User-friendly error for classification/regression
+        if analysis.analysis_type == 'classification':
+            error = 'Classification not possible. Try another analysis method.'
+        elif analysis.analysis_type == 'regression':
+            error = 'Regression analysis not possible. Try another analysis method.'
+        else:
+            error = str(e)
         analysis.status = 'failed'
+        analysis.result = {"error": error}  # Ensure valid JSON for the result field
         analysis.save()
     
     # Get a list of dashboards for the 'Add to Dashboard' modal
@@ -266,30 +428,16 @@ def run_analysis(request, pk):
 def load_data(data_source):
     if data_source.source_type == 'file' and data_source.file:
         if data_source.file_type == 'csv':
-            return pd.read_csv(data_source.file.path)
+            try:
+                return pd.read_csv(data_source.file.path, encoding='utf-8')
+            except UnicodeDecodeError:
+                return pd.read_csv(data_source.file.path, encoding='latin1')
         elif data_source.file_type in ['xls', 'xlsx']:
             return pd.read_excel(data_source.file.path)
         elif data_source.file_type == 'json':
             return pd.read_json(data_source.file.path)
         else:
             raise ValueError(f"Unsupported file type: {data_source.file_type}")
-    elif data_source.source_type in ['mysql', 'postgresql', 'supabase', 'other']:
-        connection_string = get_connection_string(data_source)
-        engine = create_engine(connection_string)
-        
-        # If analysis has a query, use it, otherwise get first table
-        if data_source.analyses.first() and data_source.analyses.first().query:
-            query = data_source.analyses.first().query
-            return pd.read_sql(text(query), engine)
-        else:
-            with engine.connect() as conn:
-                tables_query = "SHOW TABLES;" if data_source.source_type == 'mysql' else "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
-                tables = pd.read_sql(text(tables_query), conn)
-                if len(tables) > 0:
-                    first_table = tables.iloc[0, 0]
-                    return pd.read_sql(text(f"SELECT * FROM {first_table}"), conn)
-                else:
-                    raise ValueError("No tables found in the database")
     else:
         raise ValueError(f"Unsupported data source type: {data_source.source_type}")
 
@@ -342,18 +490,25 @@ def run_clustering_analysis(df, analysis):
 
 def run_classification_analysis(df, analysis):
     # Classification analysis implementation
-    # For now, just return a placeholder
+    # For now, just return a placeholder with only JSON-serializable types
+    try:
+        preview = df.head(5).to_dict('records')
+    except Exception:
+        preview = []
     return {
         'message': 'Classification analysis not implemented yet',
-        'preview': df.head(5).to_dict('records')
+        'preview': preview
     }
 
 def run_regression_analysis(df, analysis):
-    # Regression analysis implementation
-    # For now, just return a placeholder
+    # Always return a valid JSON-serializable object and handle errors
+    try:
+        preview = df.head(5).to_dict('records')
+    except Exception:
+        preview = []
     return {
-        'message': 'Regression analysis not implemented yet',
-        'preview': df.head(5).to_dict('records')
+        'message': 'Regression analysis not possible. Try another analysis method.',
+        'preview': preview
     }
 
 def run_timeseries_analysis(df, analysis):
@@ -368,20 +523,25 @@ def run_statistical_analysis(df, analysis):
     # Get parameters with defaults
     params = analysis.parameters or {}
     column = params.get('column', df.select_dtypes(include=[np.number]).columns[0] if not df.empty else None)
-    
     if not column:
         return {'error': 'No numeric column available for analysis'}
-    
     # Basic statistics
     stats = df[column].describe().to_dict()
-    
     # Histogram data
     hist_values, hist_bins = np.histogram(df[column].dropna(), bins=10)
     histogram = {
         'values': hist_values.tolist(),
         'bins': hist_bins.tolist(),
     }
-    
+    # Box plot data
+    box = {
+        'min': float(df[column].min()),
+        'q1': float(df[column].quantile(0.25)),
+        'median': float(df[column].median()),
+        'q3': float(df[column].quantile(0.75)),
+        'max': float(df[column].max()),
+        'outliers': df[(df[column] < df[column].quantile(0.25) - 1.5 * (df[column].quantile(0.75) - df[column].quantile(0.25))) | (df[column] > df[column].quantile(0.75) + 1.5 * (df[column].quantile(0.75) - df[column].quantile(0.25)))][column].tolist()
+    }
     # Additional statistical measures
     additional_stats = {
         'skewness': float(df[column].skew()),
@@ -389,14 +549,23 @@ def run_statistical_analysis(df, analysis):
         'median': float(df[column].median()),
         'mode': float(df[column].mode().iloc[0]) if not df[column].mode().empty else None,
     }
-    
-    # Combining results
+    # Combine results in a user-friendly structure
     result = {
-        'basic_stats': stats,
-        'histogram': histogram,
+        'column': column,
+        'basic_stats': {
+            'count': stats.get('count'),
+            'mean': stats.get('mean'),
+            'std': stats.get('std'),
+            'min': stats.get('min'),
+            '25%': stats.get('25%'),
+            '50%': stats.get('50%'),
+            '75%': stats.get('75%'),
+            'max': stats.get('max'),
+        },
         'additional_stats': additional_stats,
+        'histogram': histogram,
+        'boxplot': box
     }
-    
     return result
 
 def run_custom_analysis(df, analysis):

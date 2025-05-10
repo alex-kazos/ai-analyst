@@ -7,9 +7,7 @@ class DataSourceForm(forms.ModelForm):
     
     class Meta:
         model = DataSource
-        fields = ['name', 'description', 'source_type', 'file', 
-                 'host', 'port', 'database', 'username', 'password',
-                 'connection_string', 'api_key', 'api_url']
+        fields = ['name', 'description', 'source_type', 'file']
         widgets = {
             'description': forms.Textarea(attrs={'rows': 3}),
             'connection_string': forms.Textarea(attrs={'rows': 2}),
@@ -18,13 +16,6 @@ class DataSourceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['file'].required = False
-        self.fields['host'].required = False
-        self.fields['port'].required = False
-        self.fields['database'].required = False
-        self.fields['username'].required = False
-        self.fields['connection_string'].required = False
-        self.fields['api_key'].required = False
-        self.fields['api_url'].required = False
         
         # Add a JavaScript trigger to show/hide fields based on source_type
         self.fields['source_type'].widget.attrs.update({
