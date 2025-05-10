@@ -206,20 +206,56 @@
 
     <!-- Automatic Visualizations -->
     <h2 class="h4 mb-3">Automatic Visualizations</h2>
-    <div class="row" id="autoVisualizations">
-        <div class="col-md-6 mb-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-white">
-                    <h5 class="mb-0">Loading visualizations...</h5>
+    <style>
+    /* Ensure charts stay in frame and are visually balanced */
+    #autoVisualizations .card-body {
+        min-height: 340px;
+    }
+    .visualization-canvas-container {
+        min-width: 280px;
+        max-width: 48%;
+        height: 300px;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+    .visualization-canvas-container canvas {
+        height: 250px !important;
+        max-height: 250px;
+        width: 100% !important;
+        max-width: 100%;
+    }
+    @media (max-width: 900px) {
+        .visualization-canvas-container {
+            max-width: 100%;
+        }
+    }
+    </style>
+    <div id="autoVisualizations" class="card shadow-sm mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Automatic Visualizations</h5>
+            <div>
+                <select id="visualizationColumnDropdown" class="form-select form-select-sm" style="width:auto; display:inline-block;"></select>
+            </div>
+        </div>
+        <div class="card-body" id="visualizationCharts">
+            <div class="d-flex flex-wrap justify-content-between">
+                <div class="visualization-canvas-container me-3">
+                    <h6 class="text-center">Distribution</h6>
+                    <canvas id="distributionChart"></canvas>
                 </div>
-                <div class="card-body d-flex align-items-center justify-content-center" style="min-height: 300px;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
+                <div class="visualization-canvas-container">
+                    <h6 class="text-center">Values per Column</h6>
+                    <canvas id="valueCountsChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
+    <!-- AI Insights Result Container (populated by JS) -->
+    <div id="aiInsightsResult" class="mt-3"></div>
+    <!-- The extra JS for insights and chart rendering should be placed in the extra_js block at the bottom of the template. -->
 
     <!-- Analyses Section -->
     <div class="d-flex justify-content-between align-items-center mb-3 mt-5">
@@ -274,161 +310,138 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
 <script>
-    // Simulate AI insights loading
-    setTimeout(function() {
-        document.getElementById('aiInsights').style.display = 'none';
-        document.getElementById('aiInsightsResult').style.display = 'block';
-        
-        // Fill with example findings
-        const keyFindings = document.getElementById('keyFindings');
-        keyFindings.innerHTML = `
-            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Strong correlation found between [Column A] and [Column B]</li>
-            <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Top 20% of data accounts for 80% of total value</li>
-            <li><i class="fas fa-check-circle text-success me-2"></i>Several outliers detected that may affect analysis</li>
-        `;
-        
-        const dataComposition = document.getElementById('dataComposition');
-        dataComposition.innerHTML = `
-            This dataset contains primarily numeric data (65%) with some categorical variables (30%) and timestamps (5%). 
-            The data appears to follow expected distributions with minimal skewness.
-        `;
-        
-        const dataIssues = document.getElementById('dataIssues');
-        dataIssues.innerHTML = `
-            <li class="mb-2"><i class="fas fa-exclamation-circle text-warning me-2"></i>5% missing values in [Column C]</li>
-            <li><i class="fas fa-exclamation-circle text-warning me-2"></i>Possible duplicate entries detected</li>
-        `;
-        
-        // Count column types
-        document.getElementById('numericCols').innerText = '{{ columns|length }}' > 0 ? Math.floor({{ columns|length }} * 0.6) : '--';
-        document.getElementById('textCols').innerText = '{{ columns|length }}' > 0 ? Math.floor({{ columns|length }} * 0.3) : '--';
-        document.getElementById('dateCols').innerText = '{{ columns|length }}' > 0 ? Math.floor({{ columns|length }} * 0.1) : '--';
-    }, 2000);
-        // Simulate loading visualizations
-    setTimeout(function() {
-        const visualizationsContainer = document.getElementById('autoVisualizations');
-        visualizationsContainer.innerHTML = `
-            <div class="col-md-6 mb-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0">Data Distribution</h5>
-                    </div>
-                    <div class="card-body" style="min-height: 300px;">
-                        <div class="chart-container" style="position: relative; height: 300px;">
-                            <canvas id="distributionChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white">
-                        <h5 class="mb-0">Key Metrics</h5>
-                    </div>
-                    <div class="card-body" style="min-height: 300px;">
-                        <div class="chart-container" style="position: relative; height: 300px;">
-                            <canvas id="metricsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Generate charts using Chart.js
-        // Load Chart.js if not already loaded
-        if (typeof Chart === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js';
-            script.onload = function() {
-                createSampleCharts();
-            };
-            document.head.appendChild(script);
-        } else {
-            createSampleCharts();
-        }
-        
-        function createSampleCharts() {
-            // Distribution chart (bar chart)
-            const distCtx = document.getElementById('distributionChart').getContext('2d');
-            new Chart(distCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['0-10', '11-20', '21-30', '31-40', '41-50', '51-60', '61-70', '71-80', '81-90', '91-100'],
-                    datasets: [{
-                        label: 'Frequency',
-                        data: [12, 19, 32, 45, 56, 43, 32, 25, 18, 8],
-                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Frequency'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Value Range'
-                            }
-                        }
+    let distributionChart = null;
+    let valueCountsChart = null;
+    let scatterChart = null;
+    let numericColumns = [];
+    let selectedColumn = null;
+    let allVisualizations = {};
+    const dataSourceId = {{ data_source.id }};
+
+    function renderDropdown(columns, current) {
+        const dropdown = document.getElementById('visualizationColumnDropdown');
+        dropdown.innerHTML = '';
+        columns.forEach(col => {
+            const opt = document.createElement('option');
+            opt.value = col;
+            opt.textContent = col;
+            if (col === current) opt.selected = true;
+            dropdown.appendChild(opt);
+        });
+    }
+
+    function renderCharts(visualizations) {
+        // Value counts chart
+        const val = visualizations.value_counts;
+        const valCtx = document.getElementById('valueCountsChart').getContext('2d');
+        if (valueCountsChart) valueCountsChart.destroy();
+        valueCountsChart = new Chart(valCtx, {
+            type: val.type,
+            data: {
+                labels: val.labels,
+                datasets: [{
+                    label: val.title,
+                    data: val.data,
+                    backgroundColor: val.background_color,
+                    borderColor: val.border_color,
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2 }
+        });
+        // Histogram chart
+        const dist = visualizations.histogram;
+        const distCtx = document.getElementById('distributionChart').getContext('2d');
+        if (distributionChart) distributionChart.destroy();
+        distributionChart = new Chart(distCtx, {
+            type: dist.type,
+            data: {
+                labels: dist.labels,
+                datasets: [{
+                    label: dist.title,
+                    data: dist.data,
+                    backgroundColor: dist.background_color,
+                    borderColor: dist.border_color,
+                    borderWidth: 1
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2 }
+        });
+        // Scatter plot (if present)
+        const scatter = visualizations.scatter;
+        const scatterCanvas = document.getElementById('scatterChart');
+        if (scatterCanvas) {
+            if (scatterChart) scatterChart.destroy();
+            if (scatter) {
+                const scatterCtx = scatterCanvas.getContext('2d');
+                scatterChart = new Chart(scatterCtx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: scatter.title,
+                            data: scatter.labels.map((x, i) => ({ x: x, y: scatter.data[i] })),
+                            backgroundColor: scatter.background_color,
+                            borderColor: scatter.border_color
+                        }]
                     },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Value Distribution'
-                        }
-                    }
-                }
-            });
-            
-            // Key metrics chart (gauge-like doughnut)
-            const metricsCtx = document.getElementById('metricsChart').getContext('2d');
-            new Chart(metricsCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Missing Values', 'Numeric Values', 'Text Values', 'Date Values'],
-                    datasets: [{
-                        data: [5, 65, 25, 5],
-                        backgroundColor: [
-                            'rgba(255, 99, 132, 0.7)',
-                            'rgba(54, 162, 235, 0.7)',
-                            'rgba(255, 206, 86, 0.7)',
-                            'rgba(75, 192, 192, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)',
-                            'rgba(255, 206, 86, 1)',
-                            'rgba(75, 192, 192, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Data Composition'
-                        }
-                    },
-                    cutout: '60%'
-                }
-            });
+                    options: { responsive: true, maintainAspectRatio: true, aspectRatio: 2, parsing: false }
+                });
+            } else {
+                scatterCanvas.getContext('2d').clearRect(0, 0, scatterCanvas.width, scatterCanvas.height);
+            }
         }
-    }, 1500);
+    }
+
+    function fetchAndRender() {
+        let url = `/api/data-sources/${dataSourceId}/ai_analysis/`;
+        // Show spinner for insights
+        document.getElementById('aiInsights').style.display = '';
+        document.getElementById('aiInsightsResult').style.display = 'none';
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // Dropdown
+                numericColumns = data.numeric_columns || [];
+                selectedColumn = data.selected_column;
+                renderDropdown(numericColumns, selectedColumn);
+                // Store all visualizations
+                allVisualizations = data.visualizations;
+                // Render charts for selected column
+                if (allVisualizations && allVisualizations[selectedColumn]) {
+                    renderCharts(allVisualizations[selectedColumn]);
+                }
+                // AI Insights
+                let insightHtml = '';
+                if (data.key_insights && data.key_insights.length > 0) {
+                    insightHtml += '<h5>Key Insights</h5><ul>' + data.key_insights.map(i => `<li>${i}</li>`).join('') + '</ul>';
+                }
+                if (data.recommendations && data.recommendations.length > 0) {
+                    insightHtml += '<h5>Recommendations</h5><ul>' + data.recommendations.map(r => `<li>${r}</li>`).join('') + '</ul>';
+                }
+                if (!insightHtml) insightHtml = '<div class="text-muted">No AI insights available.</div>';
+                document.getElementById('aiInsightsResult').innerHTML = insightHtml;
+                document.getElementById('aiInsights').style.display = 'none';
+                document.getElementById('aiInsightsResult').style.display = '';
+            })
+            .catch(err => {
+                document.getElementById('aiInsightsResult').innerHTML = '<div class="text-danger">Error loading AI insights.</div>';
+                document.getElementById('aiInsights').style.display = 'none';
+                document.getElementById('aiInsightsResult').style.display = '';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initial fetch
+        fetchAndRender();
+        // Dropdown event
+        document.getElementById('visualizationColumnDropdown').addEventListener('change', function(e) {
+            selectedColumn = e.target.value;
+            if (allVisualizations && allVisualizations[selectedColumn]) {
+                renderCharts(allVisualizations[selectedColumn]);
+            }
+        });
+    });
+</script>
 </script>
 {% endblock %}
 

@@ -21,9 +21,44 @@ from .forms import DataSourceForm, AnalysisForm, DashboardForm, QuestionForm
 import openai
 from langchain.sql_database import SQLDatabase
 from langchain.chains import create_sql_query_chain
+from django.views.decorators.http import require_GET
 
 # Set up OpenAI API key
 openai.api_key = settings.OPENAI_API_KEY
+
+@require_GET
+def api_data_source_ai_analysis(request, pk):
+    from .ai_utils import perform_ai_analysis
+    import json
+    data_source = get_object_or_404(DataSource, pk=pk)
+    try:
+        # Load data
+        if data_source.source_type == 'file' and data_source.file:
+            import pandas as pd
+            if data_source.file_type == 'csv':
+                try:
+                    df = pd.read_csv(data_source.file.path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(data_source.file.path, encoding='latin1')
+            elif data_source.file_type in ['xls', 'xlsx']:
+                df = pd.read_excel(data_source.file.path)
+            elif data_source.file_type == 'json':
+                df = pd.read_json(data_source.file.path)
+            else:
+                return JsonResponse({'error': 'Unsupported file type'}, status=400)
+        else:
+            return JsonResponse({'error': 'Unsupported data source type'}, status=400)
+        selected_column = request.GET.get('column')
+        ai_result = perform_ai_analysis(df, analysis_type="quick_ai", query=selected_column)
+        return JsonResponse({
+            "insights": ai_result.get('key_insights', []),
+            "recommendations": ai_result.get('recommendations', []),
+            "visualizations": ai_result.get('visualizations', []),
+            "numeric_columns": ai_result.get('numeric_columns', []),
+            "selected_column": ai_result.get('selected_column'),
+        })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 # Home view
 def home(request):
@@ -86,7 +121,10 @@ def data_source_detail(request, pk):
         # For file-based data sources
         if data_source.source_type == 'file' and data_source.file:
             if data_source.file_type == 'csv':
-                df = pd.read_csv(data_source.file.path)
+                try:
+                    df = pd.read_csv(data_source.file.path, encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(data_source.file.path, encoding='latin1')
             elif data_source.file_type in ['xls', 'xlsx']:
                 df = pd.read_excel(data_source.file.path)
             elif data_source.file_type == 'json':
@@ -124,12 +162,26 @@ def data_source_detail(request, pk):
     # Get analyses for this data source
     analyses = Analysis.objects.filter(data_source=data_source)
     
+    # AI-generated insights using OpenAI (or fallback)
+    from .ai_utils import perform_ai_analysis
+    insights = []
+    recommendations = []
+    visualizations = []
+    if 'df' in locals():
+        ai_result = perform_ai_analysis(df, analysis_type="quick_ai")
+        insights = ai_result.get('key_insights', [])
+        recommendations = ai_result.get('recommendations', [])
+        visualizations = ai_result.get('visualizations', [])
+    import json
     context = {
         'data_source': data_source,
         'preview_data': preview_data,
         'columns': columns,
         'error': error,
-        'analyses': analyses
+        'analyses': analyses,
+        'insights': insights,
+        'recommendations': recommendations,
+        'visualizations': json.dumps(visualizations)
     }
     
     return render(request, 'analyst/data_source_detail.html', context)
@@ -266,30 +318,16 @@ def run_analysis(request, pk):
 def load_data(data_source):
     if data_source.source_type == 'file' and data_source.file:
         if data_source.file_type == 'csv':
-            return pd.read_csv(data_source.file.path)
+            try:
+                return pd.read_csv(data_source.file.path, encoding='utf-8')
+            except UnicodeDecodeError:
+                return pd.read_csv(data_source.file.path, encoding='latin1')
         elif data_source.file_type in ['xls', 'xlsx']:
             return pd.read_excel(data_source.file.path)
         elif data_source.file_type == 'json':
             return pd.read_json(data_source.file.path)
         else:
             raise ValueError(f"Unsupported file type: {data_source.file_type}")
-    elif data_source.source_type in ['mysql', 'postgresql', 'supabase', 'other']:
-        connection_string = get_connection_string(data_source)
-        engine = create_engine(connection_string)
-        
-        # If analysis has a query, use it, otherwise get first table
-        if data_source.analyses.first() and data_source.analyses.first().query:
-            query = data_source.analyses.first().query
-            return pd.read_sql(text(query), engine)
-        else:
-            with engine.connect() as conn:
-                tables_query = "SHOW TABLES;" if data_source.source_type == 'mysql' else "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
-                tables = pd.read_sql(text(tables_query), conn)
-                if len(tables) > 0:
-                    first_table = tables.iloc[0, 0]
-                    return pd.read_sql(text(f"SELECT * FROM {first_table}"), conn)
-                else:
-                    raise ValueError("No tables found in the database")
     else:
         raise ValueError(f"Unsupported data source type: {data_source.source_type}")
 

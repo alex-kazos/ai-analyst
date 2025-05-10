@@ -25,5 +25,6 @@ urlpatterns = [
     
     # API routes
     path('api/data-sources/<int:pk>/preview/', views.api_data_preview, name='api_data_preview'),
+    path('api/data-sources/<int:pk>/ai_analysis/', views.api_data_source_ai_analysis, name='api_data_source_ai_analysis'),
     path('api/analysis/run/', views.api_run_analysis, name='api_run_analysis'),
 ]

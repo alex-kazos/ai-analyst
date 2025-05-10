@@ -38,10 +38,6 @@
                             <select class="form-select source-type-select" id="id_source_type" name="source_type" required onchange="toggleSourceFields(this.value)">
                                 <option value="" selected disabled>Select a source type</option>
                                 <option value="file">File Upload (CSV, Excel, JSON)</option>
-                                <option value="mysql">MySQL Database</option>
-                                <option value="postgresql">PostgreSQL Database</option>
-                                <option value="supabase">Supabase</option>
-                                <option value="other">Other Database</option>
                             </select>
                         </div>
                         
@@ -50,55 +46,6 @@
                             <label for="id_file" class="form-label">Upload File</label>
                             <input type="file" class="form-control" id="id_file" name="file">
                             <div class="form-text">Accepted formats: CSV, Excel (.xls, .xlsx), JSON</div>
-                        </div>
-                        
-                        <!-- Database Connection Fields -->
-                        <div id="connection-fields" class="connection-fields">
-                            <div class="row">
-                                <div class="col-md-8 mb-3">
-                                    <label for="id_host" class="form-label">Host</label>
-                                    <input type="text" class="form-control" id="id_host" name="host">
-                                </div>
-                                <div class="col-md-4 mb-3">
-                                    <label for="id_port" class="form-label">Port</label>
-                                    <input type="number" class="form-control" id="id_port" name="port">
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="id_database" class="form-label">Database Name</label>
-                                <input type="text" class="form-control" id="id_database" name="database">
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_username" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="id_username" name="username">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="id_password" class="form-label">Password</label>
-                                    <input type="password" class="form-control" id="id_password" name="password">
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="id_connection_string" class="form-label">Connection String (Optional)</label>
-                                <textarea class="form-control" id="id_connection_string" name="connection_string" rows="2"></textarea>
-                                <div class="form-text">If provided, this will be used instead of the individual connection parameters</div>
-                            </div>
-                        </div>
-                        
-                        <!-- API Connection Fields (for Supabase) -->
-                        <div id="api-fields" class="api-fields">
-                            <div class="mb-3">
-                                <label for="id_api_url" class="form-label">API URL</label>
-                                <input type="url" class="form-control" id="id_api_url" name="api_url">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="id_api_key" class="form-label">API Key</label>
-                                <input type="password" class="form-control" id="id_api_key" name="api_key">
-                            </div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
@@ -120,22 +67,12 @@
 {% block extra_js %}
 <script>
     function toggleSourceFields(sourceType) {
-        // Hide all fields first
+        // Hide file fields first
         document.getElementById('file-fields').style.display = 'none';
-        document.getElementById('connection-fields').style.display = 'none';
-        document.getElementById('api-fields').style.display = 'none';
-        
-        // Show relevant fields based on selection
+        // Show file fields if file is selected
         if (sourceType === 'file') {
             document.getElementById('file-fields').style.display = 'block';
-        } 
-        else if (sourceType === 'mysql' || sourceType === 'postgresql' || sourceType === 'other') {
-            document.getElementById('connection-fields').style.display = 'block';
-        }
-        else if (sourceType === 'supabase') {
-            document.getElementById('api-fields').style.display = 'block';
-            document.getElementById('connection-fields').style.display = 'block';
-        }
+        }    
     }
     
     // Initialize form state on page load

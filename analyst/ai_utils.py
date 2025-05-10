@@ -87,12 +87,36 @@ def generate_mock_analysis(df, analysis_type=None, query=None):
                 "y_axis": numeric_cols[2]
             })
     
+    # Analyze column types
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+    date_cols = df.select_dtypes(include=['datetime', 'datetime64']).columns.tolist()
+    
     # Generate insights based on data characteristics
     insights = [
         f"The dataset contains {num_rows} rows and {num_cols} columns.",
         f"Key columns for analysis include: {', '.join(column_names[:3])}.",
+        f"Numeric columns: {', '.join(numeric_cols) if numeric_cols else 'None'}.",
+        f"Text columns: {', '.join(text_cols) if text_cols else 'None'}.",
+        f"Date columns: {', '.join(date_cols) if date_cols else 'None'}."
     ]
-    
+    # Add missing values insight
+    missing_report = []
+    for col in df.columns:
+        pct_missing = df[col].isnull().mean()*100
+        if pct_missing > 0:
+            missing_report.append(f"{col} ({pct_missing:.1f}% missing)")
+    if missing_report:
+        insights.append(f"Columns with missing values: {', '.join(missing_report)}.")
+    # Outlier detection for numeric columns
+    for col in numeric_cols:
+        q1 = df[col].quantile(0.25)
+        q3 = df[col].quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+        outliers = df[(df[col] < lower) | (df[col] > upper)][col]
+        if not outliers.empty:
+            insights.append(f"Potential outliers detected in {col}.")
     if numeric_cols:
         # Add some insight about the range of a numeric column
         col = numeric_cols[0]
@@ -100,7 +124,6 @@ def generate_mock_analysis(df, analysis_type=None, query=None):
         max_val = df[col].max()
         avg_val = df[col].mean()
         insights.append(f"The {col} ranges from {min_val:.2f} to {max_val:.2f} with an average of {avg_val:.2f}.")
-    
     # Generate recommendations
     recommendations = [
         "Consider running a more detailed statistical analysis on the key numeric variables.",
@@ -126,19 +149,104 @@ def generate_mock_analysis(df, analysis_type=None, query=None):
 
 def perform_ai_analysis(df, analysis_type=None, query=None):
     """
-    Perform AI analysis on a dataframe using OpenAI's API or mock implementation
-    
-    Args:
-        df: pandas DataFrame containing the data to analyze
-        analysis_type: type of analysis to perform (clustering, classification, etc.)
-        query: specific query or instructions for the analysis
-        
-    Returns:
-        dict: Analysis results containing insights, charts, and summary
+    Perform AI analysis on a dataframe:
+    - Use OpenAI for insights/recommendations if available, fallback to local if not.
+    - Always return two visualizations (distribution and value counts for selected column).
+    - Always return numeric_columns and selected_column.
     """
-    
-    # Check if the OpenAI client was properly initialized
-    # If there was an error during initialization, use mock analysis
+    import numpy as np
+    import pandas as pd
+    import json
+    result = {
+        'key_insights': [],
+        'recommendations': [],
+        'visualizations': [],
+        'numeric_columns': [],
+        'selected_column': None
+    }
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    if not numeric_cols:
+        result['key_insights'].append('No numeric columns available for visualization.')
+        return result
+    # Use query as selected column if valid, else fallback
+    selected_column = query if query in numeric_cols else numeric_cols[0]
+    result['numeric_columns'] = numeric_cols
+    result['selected_column'] = selected_column
+
+    # Visualizations for all numeric columns
+    result['visualizations'] = {}
+    for col in numeric_cols:
+        col_viz = {}
+        # Value counts bar chart
+        value_counts = df[col].value_counts().sort_index().head(20)
+        col_viz['value_counts'] = {
+            'title': f'Value Counts of {col}',
+            'type': 'bar',
+            'labels': [str(idx) for idx in value_counts.index],
+            'data': value_counts.values.tolist(),
+            'background_color': 'rgba(255, 206, 86, 0.7)',
+            'border_color': 'rgba(255, 206, 86, 1)'
+        }
+        # Histogram
+        hist, bins = np.histogram(df[col].dropna(), bins=10)
+        col_viz['histogram'] = {
+            'title': f'Distribution of {col}',
+            'type': 'bar',
+            'labels': [f"{round(bins[i],2)}-{round(bins[i+1],2)}" for i in range(len(bins)-1)],
+            'data': hist.tolist(),
+            'background_color': 'rgba(54, 162, 235, 0.7)',
+            'border_color': 'rgba(54, 162, 235, 1)'
+        }
+        # Scatter plot (index vs value, if numeric)
+        if pd.api.types.is_numeric_dtype(df[col]):
+            scatter_x = df[col].dropna().index.tolist()
+            scatter_y = df[col].dropna().values.tolist()
+            col_viz['scatter'] = {
+                'title': f'Scatter Plot of {col}',
+                'type': 'scatter',
+                'labels': scatter_x,
+                'data': scatter_y,
+                'background_color': 'rgba(75, 192, 192, 0.7)',
+                'border_color': 'rgba(75, 192, 192, 1)'
+            }
+        result['visualizations'][col] = col_viz
+
+    # Try OpenAI for insights/recommendations (only once for the dataset)
+    if 'client' in globals():
+        try:
+            sample_data = df.head(5).to_string()
+            data_info = df.describe().to_string()
+            column_info = "\n".join([f"{col} ({df[col].dtype}): {df[col].nunique()} unique values" for col in df.columns])
+            system_prompt = "You are an expert data analyst. Given a dataset, generate 3 key insights and 3 recommendations. Return a JSON with keys: key_insights, recommendations."
+            user_prompt = f"Sample data:\n{sample_data}\n\nData summary:\n{data_info}\n\nColumns:\n{column_info}"
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+            result_text = response.choices[0].message.content.strip()
+            # Remove code block markers if present
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+            ai_json = json.loads(result_text)
+            result['key_insights'] = ai_json.get('key_insights', [])
+            result['recommendations'] = ai_json.get('recommendations', [])
+        except Exception as e:
+            logger.error(f"OpenAI analysis failed: {e}")
+            if not result['key_insights']:
+                result['key_insights'].append(f"Showing distribution and value counts for column: {selected_column}.")
+            if not result['recommendations']:
+                result['recommendations'].append("No AI recommendations available.")
+    else:
+        # Fallback local insights
+        result['key_insights'].append(f"Showing distribution and value counts for column: {selected_column}.")
+        result['recommendations'].append("No AI recommendations available.")
+    return result
+
     if not 'client' in globals():
         logger.info("OpenAI client not available, using mock analysis")
         return generate_mock_analysis(df, analysis_type, query)
@@ -202,20 +310,35 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
         
         # Use client to create chat completions
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
-            ],
-            response_format={"type": "json_object"}
+            ]
         )
         
         logger.info("Received response from OpenAI API")
         
         # Extract and parse the JSON response
         result_text = response.choices[0].message.content
-        result = json.loads(result_text)
-        
+        import re
+        # Remove code block markers if present
+        if result_text.strip().startswith("```"):
+            # Remove triple backticks and optional 'json' after them
+            result_text = re.sub(r"^```(?:json)?", "", result_text.strip(), flags=re.IGNORECASE).strip()
+            result_text = re.sub(r"```$", "", result_text).strip()
+        try:
+            result = json.loads(result_text)
+        except Exception as e:
+            logger.error(f"Failed to parse OpenAI response as JSON: {e}")
+            logger.error(f"OpenAI raw response: {result_text}")
+            return {
+                "error": "Failed to parse OpenAI response as JSON.",
+                "summary": "The AI did not return valid JSON. Please try again.",
+                "key_insights": [],
+                "recommendations": [],
+                "visualizations": []
+            }
         # Add metadata
         result["analysis_type"] = analysis_type
         result["model_used"] = "gpt-4"
