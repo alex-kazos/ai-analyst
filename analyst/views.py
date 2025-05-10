@@ -109,6 +109,20 @@ def data_source_create(request):
     
     return render(request, 'analyst/data_source_form.html', {'form': form})
 
+from django.views.decorators.http import require_POST
+from django.urls import reverse
+
+def data_source_delete(request, pk):
+    from .models import DataSource
+    from django.contrib import messages
+    from django.shortcuts import redirect, get_object_or_404
+    if request.method == 'POST':
+        ds = get_object_or_404(DataSource, pk=pk)
+        ds.delete()
+        messages.success(request, 'Data source deleted successfully!')
+        return redirect('data_source_list')
+    return redirect('data_source_detail', pk=pk)
+
 def data_source_detail(request, pk):
     data_source = get_object_or_404(DataSource, pk=pk)
     

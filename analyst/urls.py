@@ -9,6 +9,7 @@ urlpatterns = [
     path('data-sources/', views.data_source_list, name='data_source_list'),
     path('data-sources/new/', views.data_source_create, name='data_source_create'),
     path('data-sources/<int:pk>/', views.data_source_detail, name='data_source_detail'),
+    path('data-sources/<int:pk>/delete/', views.data_source_delete, name='data_source_delete'),
     
     # Analysis routes
     path('data-sources/<int:data_source_id>/analysis/new/', views.analysis_create, name='analysis_create'),

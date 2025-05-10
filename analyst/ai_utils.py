@@ -211,8 +211,24 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             }
         result['visualizations'][col] = col_viz
 
-    # Try OpenAI for insights/recommendations (only once for the dataset)
-    if 'client' in globals():
+    # Try OpenAI for insights/recommendations (only once for the dataset), with caching
+    import hashlib, os
+    cache_dir = os.path.join(os.path.dirname(__file__), '.cache')
+    os.makedirs(cache_dir, exist_ok=True)
+    # Create a cache key based on dataset shape, columns, and head
+    df_hash = hashlib.md5((str(df.shape) + str(list(df.columns)) + df.head(10).to_csv(index=False)).encode('utf-8')).hexdigest()
+    cache_file = os.path.join(cache_dir, f"insights_{df_hash}.json")
+    cache_hit = False
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+                result['key_insights'] = cached.get('key_insights', [])
+                result['recommendations'] = cached.get('recommendations', [])
+                cache_hit = True
+        except Exception as e:
+            logger.error(f"Failed to load OpenAI insights cache: {e}")
+    if not cache_hit and 'client' in globals():
         try:
             sample_data = df.head(5).to_string()
             data_info = df.describe().to_string()
@@ -235,13 +251,16 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             ai_json = json.loads(result_text)
             result['key_insights'] = ai_json.get('key_insights', [])
             result['recommendations'] = ai_json.get('recommendations', [])
+            # Save to cache
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                json.dump({'key_insights': result['key_insights'], 'recommendations': result['recommendations']}, f)
         except Exception as e:
             logger.error(f"OpenAI analysis failed: {e}")
             if not result['key_insights']:
                 result['key_insights'].append(f"Showing distribution and value counts for column: {selected_column}.")
             if not result['recommendations']:
                 result['recommendations'].append("No AI recommendations available.")
-    else:
+    elif not cache_hit:
         # Fallback local insights
         result['key_insights'].append(f"Showing distribution and value counts for column: {selected_column}.")
         result['recommendations'].append("No AI recommendations available.")
