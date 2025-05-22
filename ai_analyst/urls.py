@@ -3,10 +3,14 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
+from analyst.views_health import HealthCheckView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('analyst.urls')),
+    
+    # Health check endpoint
+    path('health/', HealthCheckView.as_view(), name='health_check'),
     
     # Authentication URLs
     path('accounts/login/', auth_views.LoginView.as_view(template_name='auth/login.html'), name='login'),

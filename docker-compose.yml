@@ -1,0 +1,101 @@
+# Docker Compose version 3.8 is recommended for healthchecks
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      # Use build args if needed
+      # args:
+      #   - ENVIRONMENT=production
+    volumes:
+      - .:/home/myuser/app
+      - static_volume:/home/myuser/app/staticfiles
+      - media_volume:/home/myuser/app/media
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-change-this-in-production}
+      # Database settings
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_NAME=${DB_NAME:-ai_analyst}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
+      # Redis settings
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your_redis_password}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-your_redis_password}@redis:6379/0
+      # Python settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONPATH=/home/myuser/app
+      # User settings
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+      # Health check settings
+      - WAIT_FOR_HOSTS=db:5432,redis:6379
+      - WAIT_FOR_TIMEOUT=60
+      - WAIT_FOR_RETRY_INTERVAL=5
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=${DB_NAME:-ai_analyst}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_INITDB_ARGS=--data-checksums
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ai_analyst}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:alpine
+    command: [
+      "sh",
+      "-c",
+      "redis-server --requirepass ${REDIS_PASSWORD:-your_redis_password} --appendonly yes"
+    ]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your_redis_password}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD:-your_redis_password} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
