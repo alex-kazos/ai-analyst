@@ -16,10 +16,9 @@ load_dotenv()
 
 # Configure OpenAI API key from environment variable
 api_key = os.getenv("OPENAI_API_KEY")
-# If the key is not in .env, use this fallback key (only for development)
 if not api_key:
-    api_key = "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"
-    logger.warning("Using fallback OpenAI API key. For production, set OPENAI_API_KEY in .env file.")
+    logger.warning("No OpenAI API key found. Please set OPENAI_API_KEY in your .env file.")
+    skip_api_calls = True
 org_id = os.getenv("OPENAI_ORG_ID")
 
 # Initialize OpenAI client
