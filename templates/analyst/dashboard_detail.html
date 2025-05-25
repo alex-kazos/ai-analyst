@@ -1,0 +1,1408 @@
+{% extends 'base.html' %}
+{% load analyst_tags %}
+
+{% block title %}{{ dashboard.name }} - AI Analyst{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Dashboard Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">{{ dashboard.name }}</h1>
+            <p class="text-muted">{{ dashboard.description|default:"No description provided" }}</p>
+        </div>
+        <div class="d-flex">
+            <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addWidgetModal">
+                <i class="fas fa-plus-circle me-2"></i>Add Widget
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="dashboardActions" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dashboardActions">
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit Dashboard</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-share-alt me-2"></i>Share Dashboard</a></li>
+                    <li><a class="dropdown-item" href="#"><i class="fas fa-download me-2"></i>Export as PDF</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash-alt me-2"></i>Delete Dashboard</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Widgets -->
+    {% if dashboard_items %}
+        <div class="row" id="dashboard-container">
+            {% if dashboard_items.exists %}
+            {% for item in dashboard_items %}
+                <div class="col-md-6 col-lg-4 mb-4 dashboard-item" data-item-id="{{ item.id }}">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                            <h5 class="card-title mb-0">{{ item.title }}</h5>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-dark" type="button" id="widgetMenu{{ item.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="widgetMenu{{ item.id }}">
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-expand me-2"></i>Expand</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-download me-2"></i>Download</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash-alt me-2"></i>Remove</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if item.chart_type == 'bar' or item.chart_type == 'line' or item.chart_type == 'pie' %}
+                                <div class="chart-container" style="position: relative; height:250px;">
+                                    <canvas class="item-chart" data-item-id="{{ item.id }}" data-chart-type="{{ item.chart_type }}" data-chart-data="{{ item.chart_data }}"></canvas>
+                                </div>
+                            {% elif item.chart_type == 'table' %}
+                                <div class="table-responsive">
+                                    {{ item.content|safe }}
+                                </div>
+                            {% elif item.chart_type == 'metric' %}
+                                <div class="text-center py-4">
+                                    <h2 class="display-4 fw-bold text-primary">{{ item.metric_value }}</h2>
+                                    <p class="text-muted">{{ item.metric_label }}</p>
+                                    {% if item.metric_change %}
+                                        <div class="badge {% if item.metric_change >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if item.metric_change >= 0 %}<i class="fas fa-arrow-up me-1"></i>{% else %}<i class="fas fa-arrow-down me-1"></i>{% endif %}
+                                            {{ item.metric_change|abs }}%
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="p-3">
+                                    {{ item.content|safe }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            {% else %}
+            <!-- Empty dashboard state -->
+            <div class="text-center py-5 w-100">
+                <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
+                <h3 class="mt-3">No widgets yet</h3>
+                <p class="text-muted">Get started by adding widgets to your dashboard</p>
+                <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#addWidgetModal">
+                    <i class="fas fa-plus-circle me-2"></i>Add First Widget
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Empty Dashboard State -->
+        <div class="card shadow-sm border-0 rounded-3 mb-4">
+            <div class="card-body p-5 text-center">
+                <div class="py-5">
+                    <i class="fas fa-chart-bar fa-4x text-muted mb-4"></i>
+                    <h3>No Widgets Added Yet</h3>
+                    <p class="text-muted mb-4">Create your first widget to start building your dashboard.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addWidgetModal">
+                        <i class="fas fa-plus-circle me-2"></i>Add Your First Widget
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Widget Examples -->
+        <div class="mt-5">
+            <h2 class="h4 mb-4">Widget Examples</h2>
+            <div class="row">
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title">Sales by Region</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="chart-container" style="position: relative; height:180px;">
+                                <canvas class="example-chart" data-type="pie" data-id="region"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title">Monthly Revenue</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="chart-container" style="position: relative; height:180px;">
+                                <canvas class="example-chart" data-type="line" data-id="monthly"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title">Product Categories</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="chart-container" style="position: relative; height:180px;">
+                                <canvas class="example-chart" data-type="bar" data-id="products"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-white">
+                            <h5 class="card-title">KPI Metrics</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="text-center py-3">
+                                <h2 class="display-4 fw-bold text-primary">$24,785</h2>
+                                <p class="text-muted">Monthly Revenue</p>
+                                <div class="badge bg-success">
+                                    <i class="fas fa-arrow-up me-1"></i>12.4%
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Widget Modal -->
+<div class="modal fade" id="addWidgetModal" tabindex="-1" aria-labelledby="addWidgetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addWidgetModalLabel">Add Widget</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addWidgetForm">
+                    <!-- Hidden input for dashboard ID -->
+                    <input type="hidden" id="dashboard_id" name="dashboard_id" value="{{ dashboard.id }}">
+                    <div class="mb-3">
+                        <label for="widgetTitle" class="form-label">Widget Title</label>
+                        <input type="text" class="form-control" id="widgetTitle" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="widgetType" class="form-label">Widget Type</label>
+                        <select class="form-select" id="widgetType" name="widget_type" required onChange="updateQueryVisibility()">
+                            <option value="">Select type...</option>
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="pie" selected>Pie Chart</option>
+                            <option value="table">Data Table</option>
+                            <option value="metric">KPI Metric</option>
+                            <option value="custom">Custom Content</option>
+                        </select>
+                        <small class="form-text text-muted">Pie chart selected by default for automatic visualization</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dataSource" class="form-label">Data Source</label>
+                        <select class="form-select" id="dataSource" name="data_source_id">
+                            <option value="items">Sample Items</option>
+                            {% if data_sources.exists %}
+                                {% for ds in data_sources %}
+                                    <option value="{{ ds.id }}">{{ ds.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Fallback sample data option -->
+                                <option value="sample_data" selected>Sample Data</option>
+                            {% endif %}
+                        </select>
+                        <small class="form-text text-muted">Data will be automatically visualized if no query is provided</small>
+                    </div>
+                    <div class="mb-3" id="queryContainer">
+                        <label for="queryInput" class="form-label">Query or Question (Optional)</label>
+                        <textarea class="form-control" id="queryInput" name="query" rows="3" placeholder="Enter SQL query or ask a question about your data (optional)"></textarea>
+                        <small class="form-text text-muted">Leave empty for automatic visualization of your data</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="widgetSize" class="form-label">Widget Size</label>
+                        <select class="form-select" id="widgetSize" name="size">
+                            <option value="small">Small (4 columns)</option>
+                            <option value="medium" selected>Medium (6 columns)</option>
+                            <option value="large">Large (8 columns)</option>
+                            <option value="full">Full Width (12 columns)</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="dashboard_id" name="dashboard_id" value="{{ dashboard.id }}">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="add-widget-submit" onclick="createWidget(); return false;">Add Widget</button>
+            </div>
+            <div class="alert alert-danger mx-3 mb-3 d-none" id="widget-form-error">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                <span id="widget-error-message">There was a problem adding the widget. Please try again.</span>
+            </div>
+            <script>
+                // Helper functions for the widget form
+                (function() {
+                    console.log('Setting up widget form helpers');
+                
+                function showError(message) {
+                    const errorContainer = document.getElementById('widget-form-error');
+                    const errorMessage = document.getElementById('widget-error-message');
+                    
+                    if (errorContainer && errorMessage) {
+                        errorMessage.textContent = message;
+                        errorContainer.classList.remove('d-none');
+                    } else {
+                        // Fallback to alert if elements not found
+                        alert(message);
+                    }
+                }
+                
+                function hideError() {
+                    const errorContainer = document.getElementById('widget-form-error');
+                    if (errorContainer) {
+                        errorContainer.classList.add('d-none');
+                    }
+                }
+                
+                // Direct implementation to ensure the widget is created when the button is clicked
+                window.createWidget = function() {
+                    console.log('⚡ Create widget function called');
+                    
+                    try {
+                        // Get form values
+                        const widgetTitle = document.getElementById('widgetTitle').value;
+                        const widgetType = document.getElementById('widgetType').value.toLowerCase();
+                        const dataSourceId = document.getElementById('dataSource').value;
+                        const query = document.getElementById('queryInput')?.value || '';
+                        const widgetSize = document.getElementById('widgetSize')?.value || 'medium';
+                        
+                        console.log('Widget values:', { widgetTitle, widgetType, dataSourceId, query, widgetSize });
+                        
+                        // Simple validation
+                        if (!widgetTitle) {
+                            alert('Please enter a widget title');
+                            return false;
+                        }
+                        
+                        // Create dashboard container if it doesn't exist
+                        let dashboardContainer = document.getElementById('dashboard-container');
+                        if (!dashboardContainer) {
+                            console.log('Creating dashboard container');
+                            const mainContent = document.querySelector('.container-fluid.py-4');
+                            dashboardContainer = document.createElement('div');
+                            dashboardContainer.id = 'dashboard-container';
+                            dashboardContainer.className = 'row';
+                            if (mainContent) {
+                                mainContent.appendChild(dashboardContainer);
+                            } else {
+                                document.body.appendChild(dashboardContainer);
+                            }
+                        }
+                        
+                        // Remove empty state if exists
+                        const emptyState = document.querySelector('.card.shadow-sm.border-0');
+                        if (emptyState) {
+                            emptyState.remove();
+                        }
+                        
+                        // Create widget element with unique ID
+                        const widgetId = 'widget-' + Date.now();
+                        const chartId = 'chart-' + Date.now();
+                        const colSize = widgetSize === 'small' ? 'col-md-4' : 
+                                    widgetSize === 'large' ? 'col-md-8' : 
+                                    widgetSize === 'full' ? 'col-12' : 'col-md-6';
+                                    
+                        const widgetEl = document.createElement('div');
+                        widgetEl.className = `dashboard-item ${colSize} mb-4`;
+                        widgetEl.id = widgetId;
+                        
+                        // Create widget HTML
+                        widgetEl.innerHTML = `
+                            <div class="card shadow-sm h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                                    <h5 class="mb-0">${widgetTitle}</h5>
+                                    <div class="widget-actions">
+                                        <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="chart-container" style="position: relative; height: 250px;">
+                                        <canvas id="${chartId}" data-type="${widgetType}"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Add widget to dashboard
+                        dashboardContainer.appendChild(widgetEl);
+                        console.log('Widget element added to dashboard:', widgetId);
+                        
+                        // Create chart data
+                        const labels = ['Category A', 'Category B', 'Category C', 'Category D'];
+                        const data = [Math.random() * 100, Math.random() * 100, Math.random() * 100, Math.random() * 100];
+                        const backgroundColor = [
+                            'rgba(54, 162, 235, 0.8)', 
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(255, 206, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)'
+                        ];
+                        
+                        // Initialize chart
+                        setTimeout(function() {
+                            try {
+                                const canvas = document.getElementById(chartId);
+                                if (!canvas) {
+                                    console.error('Cannot find canvas element:', chartId);
+                                    return;
+                                }
+                                
+                                console.log('Creating chart on canvas:', chartId);
+                                const ctx = canvas.getContext('2d');
+                                
+                                const chartData = {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: widgetTitle,
+                                        data: data,
+                                        backgroundColor: backgroundColor,
+                                        borderWidth: 1
+                                    }]
+                                };
+                                
+                                const config = {
+                                    type: widgetType,
+                                    data: chartData,
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        animation: {
+                                            duration: 1000
+                                        },
+                                        plugins: {
+                                            legend: {
+                                                position: 'bottom',
+                                                labels: {
+                                                    boxWidth: 12
+                                                }
+                                            }
+                                        },
+                                        scales: widgetType !== 'pie' ? {
+                                            y: {
+                                                beginAtZero: true
+                                            }
+                                        } : {}
+                                    }
+                                };
+                                
+                                new Chart(ctx, config);
+                                console.log('Chart created successfully');
+                            } catch (error) {
+                                console.error('Error creating chart:', error);
+                                alert('Error creating chart: ' + error.message);
+                            }
+                        }, 100);
+                        
+                        // Close the modal
+                        console.log('Closing modal...');
+                        const modalElement = document.getElementById('addWidgetModal');
+                        if (modalElement) {
+                            const modal = bootstrap.Modal.getInstance(modalElement);
+                            if (modal) {
+                                modal.hide();
+                            } else {
+                                $(modalElement).modal('hide');
+                            }
+                        }
+                        
+                        return true;
+                    } catch (error) {
+                        console.error('Error in createWidget function:', error);
+                        alert('Error creating widget: ' + error.message);
+                        return false;
+                    }
+                }
+                })();
+            </script>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Required libraries -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/interactjs@1.10.11/dist/interact.min.js"></script>
+<script>
+    // PowerBI + Miro-like Dashboard Implementation
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Dashboard loaded');
+        
+        // Make dashboard functions globally available
+        window.setupDashboardFunctions = function() {
+            console.log('Setting up dashboard functions globally');
+            // Expose key functions to window object
+            window.initializeDraggableWidgets = initializeDraggableWidgets;
+            window.initializeResizableWidgets = initializeResizableWidgets;
+            window.initializeCharts = initializeCharts;
+            window.generateMockData = generateMockData;
+        };
+        
+        // Initialize right away
+        setupDashboardFunctions();
+        
+        // For demo purposes, attach a click handler to chart.js script to detect if it's loaded
+        if (typeof Chart === 'undefined') {
+            console.log('Chart.js not detected, will load dynamically when needed');
+        } else {
+            console.log('Chart.js already loaded');
+        }
+        
+        // -------- DASHBOARD CONFIGURATION --------
+        const GRID_SIZE = 20; // Size of grid for snapping
+        const WIDGET_MIN_WIDTH = 300;
+        const WIDGET_MIN_HEIGHT = 200;
+        
+        // -------- INITIALIZE DRAG & DROP --------
+        const dashboardContainer = document.getElementById('dashboard-container');
+        if (dashboardContainer) {
+            // Make widgets draggable with grid snapping like Miro
+            initializeDraggableWidgets();
+            
+            // Make widgets resizable like PowerBI
+            initializeResizableWidgets();
+            
+            // Make dashboard sortable (drag and drop ordering)
+            new Sortable(dashboardContainer, {
+                animation: 150,
+                handle: '.widget-handle',
+                ghostClass: 'widget-ghost',
+                onEnd: function(evt) {
+                    saveWidgetPositions();
+                }
+            });
+        }
+        
+        // -------- INITIALIZE CHARTS --------
+        initializeCharts();
+        
+        // -------- WIDGET FORM HANDLING --------
+        setupWidgetForm();
+        
+        // -------- MOCK DATA GENERATION --------
+        // For automatic chart creation when no query is provided
+        setupAutoDataGeneration();
+    });
+    
+    // Function to update query field visibility based on widget type
+    function updateQueryVisibility() {
+        const widgetType = document.getElementById('widgetType').value;
+        const queryContainer = document.getElementById('queryContainer');
+        
+        // For custom content, query is required
+        if (widgetType === 'custom') {
+            queryContainer.style.display = 'block';
+            document.getElementById('queryInput').required = true;
+            document.getElementById('queryInput').placeholder = 'Enter custom HTML/markdown content';
+        } else {
+            queryContainer.style.display = 'block';
+            document.getElementById('queryInput').required = false;
+            document.getElementById('queryInput').placeholder = 'Enter SQL query or ask a question about your data (optional)';
+        }
+    }
+    
+    // Make widgets draggable with grid snapping (Miro-like)
+    function initializeDraggableWidgets() {
+        interact('.dashboard-item').draggable({
+            inertia: true,
+            modifiers: [
+                interact.modifiers.snap({
+                    targets: [
+                        interact.snappers.grid({ x: 20, y: 20 })
+                    ],
+                    range: Infinity,
+                    relativePoints: [ { x: 0, y: 0 } ]
+                }),
+                interact.modifiers.restrict({
+                    restriction: 'parent',
+                    elementRect: { top: 0, left: 0, bottom: 1, right: 1 }
+                })
+            ],
+            autoScroll: true,
+            listeners: {
+                move: dragMoveListener,
+                end: function (event) {
+                    saveWidgetPositions();
+                }
+            }
+        });
+        
+        function dragMoveListener(event) {
+            const target = event.target;
+            const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+            const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
+            
+            // Update position with transform
+            target.style.transform = `translate(${x}px, ${y}px)`;
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+            
+            // Add dragging class
+            target.classList.add('is-dragging');
+        }
+    }
+    
+    // Make widgets resizable (PowerBI-like)
+    function initializeResizableWidgets() {
+        interact('.dashboard-item').resizable({
+            edges: { top: false, left: false, bottom: true, right: true },
+            modifiers: [
+                interact.modifiers.restrictSize({
+                    min: { width: 250, height: 150 }
+                }),
+                interact.modifiers.snapSize({
+                    targets: [
+                        interact.snappers.grid({ width: 20, height: 20 })
+                    ]
+                })
+            ],
+            inertia: true,
+            listeners: {
+                move: resizeMoveListener,
+                end: function (event) {
+                    saveWidgetPositions();
+                }
+            }
+        });
+        
+        function resizeMoveListener(event) {
+            const target = event.target;
+            let x = (parseFloat(target.getAttribute('data-x')) || 0);
+            let y = (parseFloat(target.getAttribute('data-y')) || 0);
+            
+            // Update element dimensions
+            target.style.width = event.rect.width + 'px';
+            target.style.height = event.rect.height + 'px';
+            
+            // Update position when resizing from top or left edges
+            x += event.deltaRect.left;
+            y += event.deltaRect.top;
+            
+            target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+        }
+    }
+    
+    // Initialize all charts on the dashboard
+    function initializeCharts() {
+        console.log('Initializing all charts...');
+        
+        // Initialize examples charts
+        document.querySelectorAll('.example-chart').forEach(canvas => {
+            try {
+                const type = canvas.getAttribute('data-type');
+                const id = canvas.getAttribute('data-id');
+                console.log('Creating example chart:', type, id);
+                
+                let chartData = window.generateMockData(type);
+                
+                const ctx = canvas.getContext('2d');
+                new Chart(ctx, {
+                    type: type,
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0,0,0,0.8)',
+                                titleFont: {
+                                    size: 14
+                                },
+                                bodyFont: {
+                                    size: 13
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error('Error initializing chart:', e);
+            }
+        });
+        
+        // Initialize charts for existing widgets
+        document.querySelectorAll('.item-chart').forEach(canvas => {
+            try {
+                const chartType = canvas.getAttribute('data-chart-type');
+                const chartDataString = canvas.getAttribute('data-chart-data');
+                
+                if (chartDataString) {
+                    const chartData = JSON.parse(chartDataString);
+                    const ctx = canvas.getContext('2d');
+                    
+                    new Chart(ctx, {
+                        type: chartType,
+                        data: chartData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        boxWidth: 12
+                                    }
+                                }
+                            },
+                            scales: chartType !== 'pie' ? {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            } : {}
+                        }
+                    });
+                } else {
+                    console.log('No chart data found for widget chart, using mock data');
+                    const chartData = window.generateMockData(chartType);
+                    const ctx = canvas.getContext('2d');
+                    
+                    new Chart(ctx, {
+                        type: chartType,
+                        data: chartData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        boxWidth: 12
+                                    }
+                                }
+                            },
+                            scales: chartType !== 'pie' ? {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            } : {}
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('Error initializing widget chart:', e);
+            }
+        });
+    }
+    
+    // Set up widget form submission handling
+    function setupWidgetForm() {
+        console.log('Setting up widget form');
+        // Debug data source availability
+        const dataSourceSelect = document.getElementById('dataSource');
+        if (dataSourceSelect) {
+            console.log('Data source select found, options:', dataSourceSelect.options.length);
+            // Log available data sources
+            const availableDataSources = [];
+            for (let i = 0; i < dataSourceSelect.options.length; i++) {
+                availableDataSources.push({
+                    value: dataSourceSelect.options[i].value,
+                    text: dataSourceSelect.options[i].text
+                });
+            }
+            console.log('Available data sources:', availableDataSources);
+        }
+        
+        // Attach event listener to the submit button
+        const submitBtn = document.getElementById('submitWidgetBtn');
+        const widgetForm = document.getElementById('addWidgetForm');
+        
+        if (submitBtn && widgetForm) {
+            console.log('Form submit button found, adding event listener');
+            submitBtn.addEventListener('click', function(e) {
+                e.preventDefault(); // Prevent default form submission
+                console.log('Add Widget button clicked!');
+                // Get form values
+                const widgetTitle = document.getElementById('widgetTitle').value;
+                const widgetType = document.getElementById('widgetType').value;
+                const dataSourceId = document.getElementById('dataSource').value;
+                const query = document.getElementById('queryInput')?.value || '';
+                const widgetSize = document.getElementById('widgetSize').value;
+                const dashboardId = document.getElementById('dashboard_id').value;
+                
+                // Validate form
+                if (!widgetTitle || !widgetType) {
+                    alert('Please enter a widget title and select a widget type');
+                    return;
+                }
+                
+                // Use a default data source if none selected
+                if (!dataSourceId) {
+                    console.warn('No data source selected, using default');
+                    const firstOption = document.querySelector('#dataSource option:not([value=""])');
+                    if (firstOption) {
+                        dataSourceId = firstOption.value;
+                    }
+                }
+                
+                console.log('Creating widget with:', {
+                    title: widgetTitle,
+                    type: widgetType,
+                    dataSourceId: dataSourceId,
+                    query: query,
+                    size: widgetSize,
+                    dashboardId: dashboardId
+                });
+                
+                // Log what we're doing
+                console.log('Creating widget with:', {
+                    title: widgetTitle,
+                    type: widgetType,
+                    dataSourceId: dataSourceId,
+                    query: query,
+                    size: widgetSize
+                });
+                
+                try {
+                    // For demo purposes, create a mock widget directly in the dashboard
+                    createMockWidget(widgetTitle, widgetType, query, widgetSize);
+                    console.log('Widget created successfully!');
+                } catch (error) {
+                    console.error('Error creating widget:', error);
+                    alert('Error creating widget. Please check browser console for details.');
+                }
+                
+                // Close the modal
+                try {
+                    const modalElement = document.getElementById('addWidgetModal');
+                    const modal = bootstrap.Modal.getInstance(modalElement);
+                    if (modal) {
+                        modal.hide();
+                    } else {
+                        // If modal instance not found, try to create one and then hide it
+                        new bootstrap.Modal(modalElement).hide();
+                    }
+                } catch (error) {
+                    console.error('Error closing modal:', error);
+                    // Fallback: hide using jQuery if available
+                    if (typeof $ !== 'undefined') {
+                        $('#addWidgetModal').modal('hide');
+                    } else {
+                        // Last resort: hide manually
+                        document.getElementById('addWidgetModal').style.display = 'none';
+                        document.querySelector('.modal-backdrop')?.remove();
+                        document.body.classList.remove('modal-open');
+                        document.body.style.removeProperty('overflow');
+                        document.body.style.removeProperty('padding-right');
+                    }
+                }
+            });
+        }
+    }
+    
+    // For automatic data generation when no query is provided
+    function setupAutoDataGeneration() {
+        console.log('Setting up auto data generation');
+        // This would typically fetch data from the server
+        window.generateMockData = function(type) {
+            const labels = ['Category A', 'Category B', 'Category C', 'Category D', 'Category E'];
+            const backgroundColors = [
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(153, 102, 255, 0.7)'
+            ];
+            
+            if (type === 'pie') {
+                return {
+                    labels: labels,
+                    datasets: [{
+                        data: [12, 19, 8, 15, 10],
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                };
+            } else if (type === 'bar') {
+                return {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sample Data',
+                        data: [12, 19, 8, 15, 10],
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                };
+            } else if (type === 'line') {
+                return {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Trend',
+                        data: [12, 15, 18, 14, 20, 25],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                };
+            } else {
+                // Default to bar chart data
+                return {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Sample Data',
+                        data: [12, 19, 8, 15, 10],
+                        backgroundColor: backgroundColors,
+                        borderWidth: 1
+                    }]
+                };
+            }
+        };
+    }
+    
+    // Create a mock widget in the dashboard (for demo purposes)
+    window.createMockWidget = function(title, type, query, size) {
+        console.log('Creating mock widget:', title, type, query, size);
+        
+        // Find the dashboard container
+        let dashboardContainer = document.getElementById('dashboard-container');
+        
+        if (!dashboardContainer) {
+            console.warn('Dashboard container not found, creating one');
+            const mainContent = document.querySelector('.container-fluid.py-4');
+            if (!mainContent) {
+                alert('Cannot find dashboard area. Please refresh the page.');
+                return;
+            }
+            
+            // Remove empty state if it exists
+            const emptyState = mainContent.querySelector('.card.shadow-sm.border-0');
+            if (emptyState) emptyState.remove();
+            
+            // Create dashboard container
+            dashboardContainer = document.createElement('div');
+            dashboardContainer.id = 'dashboard-container';
+            dashboardContainer.className = 'row';
+            mainContent.appendChild(dashboardContainer);
+        }
+        
+        // Determine widget size
+        let colClass = 'col-md-6'; // Default medium
+        if (size === 'small') colClass = 'col-md-4';
+        else if (size === 'large') colClass = 'col-md-8';
+        else if (size === 'full') colClass = 'col-12';
+        
+        // Remove any empty state message
+        const emptyState = dashboardContainer.querySelector('.text-center.py-5.w-100');
+        if (emptyState) emptyState.remove();
+
+        // Create widget element
+        const widgetId = 'widget-' + Date.now();
+        const chartId = 'chart-' + Date.now();
+        const widgetEl = document.createElement('div');
+        widgetEl.className = `dashboard-item ${colClass} mb-4`;
+        widgetEl.id = widgetId;
+        widgetEl.dataset.itemId = widgetId;
+        
+        // Create HTML content based on widget type
+        if (type === 'bar' || type === 'line' || type === 'pie') {
+            widgetEl.innerHTML = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="position: relative; height: 250px;">
+                            <canvas id="${chartId}" class="mock-chart" data-type="${type}"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'metric') {
+            // Metric widget
+            const metricValue = '$24,785';
+            const metricLabel = 'Revenue';
+            const metricChange = '+12.4%';
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-4">
+                            <h2 class="display-4 fw-bold text-primary">${metricValue}</h2>
+                            <p class="text-muted">${metricLabel}</p>
+                            <div class="badge bg-success">
+                                <i class="fas fa-arrow-up me-1"></i>${metricChange}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'table') {
+            // Table widget
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Value</th>
+                                        <th>Percent</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Category A</td>
+                                        <td>120</td>
+                                        <td>32%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Category B</td>
+                                        <td>80</td>
+                                        <td>21%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Category C</td>
+                                        <td>180</td>
+                                        <td>47%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'custom') {
+            // Custom content widget
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="p-3">
+                            ${query || '<p>Custom content goes here.</p>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'table') {
+            // Table widget
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Value</th>
+                                        <th>Percent</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>Category A</td><td>12</td><td>25%</td></tr>
+                                    <tr><td>Category B</td><td>19</td><td>30%</td></tr>
+                                    <tr><td>Category C</td><td>8</td><td>15%</td></tr>
+                                    <tr><td>Category D</td><td>15</td><td>20%</td></tr>
+                                    <tr><td>Category E</td><td>10</td><td>10%</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (type === 'metric') {
+            // Metric widget
+            const value = Math.floor(Math.random() * 1000);
+            const change = (Math.random() * 20 - 10).toFixed(1);
+            const isPositive = parseFloat(change) >= 0;
+            
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center py-4">
+                            <h2 class="display-4 fw-bold text-primary">${value}</h2>
+                            <p class="text-muted">Sample Metric</p>
+                            <div class="badge ${isPositive ? 'bg-success' : 'bg-danger'}">
+                                ${isPositive ? '<i class="fas fa-arrow-up me-1"></i>' : '<i class="fas fa-arrow-down me-1"></i>'}
+                                ${Math.abs(change)}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Fallback for unsupported widget types
+            widgetContent = `
+                <div class="card shadow-sm h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                        <h5 class="mb-0">${title}</h5>
+                        <div class="widget-actions">
+                            <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body text-center p-5">
+                        <p class="text-muted">Unsupported widget type</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+
+// Define widget content based on type
+let widgetContent = '';
+
+if (type === 'bar' || type === 'line' || type === 'pie') {
+    // Chart widget (bar, line, pie)
+    widgetContent = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                <h5 class="mb-0">${title}</h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 250px;">
+                    <canvas id="${chartId}" class="mock-chart" data-type="${type}"></canvas>
+                </div>
+            </div>
+        </div>
+    `;
+} else if (type === 'metric') {
+    // Metric widget
+    const metricValue = '$24,785';
+    const metricLabel = 'Revenue';
+    const metricChange = '+12.4%';
+    widgetContent = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                <h5 class="mb-0">${title}</h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="text-center py-4">
+                    <h2 class="display-4 fw-bold text-primary">${metricValue}</h2>
+                    <p class="text-muted">${metricLabel}</p>
+                    <div class="badge bg-success">
+                        <i class="fas fa-arrow-up me-1"></i>${metricChange}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+} else if (type === 'table') {
+    // Table widget
+    widgetContent = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                <h5 class="mb-0">${title}</h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Value</th>
+                                <th>Percent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Category A</td><td>12</td><td>25%</td></tr>
+                            <tr><td>Category B</td><td>19</td><td>30%</td></tr>
+                            <tr><td>Category C</td><td>8</td><td>15%</td></tr>
+                            <tr><td>Category D</td><td>15</td><td>20%</td></tr>
+                            <tr><td>Category E</td><td>10</td><td>10%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+} else if (type === 'custom') {
+    // Custom content widget
+    widgetContent = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                <h5 class="mb-0">${title}</h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="p-3">
+                    ${query || '<p>Custom content goes here.</p>'}
+                </div>
+            </div>
+        </div>
+    `;
+} else {
+    // Fallback for unsupported widget types
+    widgetContent = `
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between align-items-center widget-handle">
+                <h5 class="mb-0">${title}</h5>
+                <div class="widget-actions">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <div class="card-body text-center p-5">
+                <p class="text-muted">Unsupported widget type</p>
+            </div>
+        </div>
+    `;
+}
+
+// Add widget to container and make it visible
+widgetEl.innerHTML = widgetContent;
+dashboardContainer.appendChild(widgetEl);
+console.log('Widget added to dashboard:', widgetId);
+
+// Create chart if widget is a chart type
+if (type === 'pie' || type === 'bar' || type === 'line') {
+    console.log('Creating chart for widget:', chartId);
+    
+    // Function to create the chart
+    const createChart = function() {
+        const canvas = document.getElementById(chartId);
+        if (!canvas) {
+            console.error('Canvas element not found:', chartId);
+            return;
+        }
+        
+        try {
+            // Generate data for the chart
+            const data = window.generateMockData(type);
+            
+            // Create the chart
+            new Chart(canvas, {
+                type: type,
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: title,
+                            font: {
+                                size: 14
+                            }
+                        }
+                    },
+                    scales: type !== 'pie' ? {
+                        y: {
+                            beginAtZero: true
+                        }
+                    } : {}
+                }
+            });
+                } catch (error) {
+                    console.error('Error creating chart:', error);
+                }
+            };
+            
+            // Ensure Chart.js is available
+            if (typeof Chart === 'undefined') {
+                console.log('Loading Chart.js...');
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js';
+                script.onload = function() {
+                    console.log('Chart.js loaded');
+                    // Wait a moment to ensure DOM is ready
+                    setTimeout(createChart, 100);
+                };
+                document.head.appendChild(script);
+            } else {
+                // Wait a moment to ensure DOM is ready
+                setTimeout(createChart, 100);
+            }
+        }
+        
+        // Initialize draggable/resizable behavior for the new widget
+        setTimeout(function() {
+            initializeDraggableWidgets();
+            initializeResizableWidgets();
+        }, 200);
+        
+        return widgetEl;
+    }
+    
+    // Save widget positions and sizes to server (mock)
+    function saveWidgetPositions() {
+        // This would normally send position data to server
+        console.log('Saving widget positions and sizes...');
+        
+        // Get all widget positions
+        const widgets = document.querySelectorAll('.dashboard-item');
+        const positions = [];
+        
+        widgets.forEach(function(widget) {
+            const id = widget.dataset.itemId;
+            const x = widget.getAttribute('data-x') || 0;
+            const y = widget.getAttribute('data-y') || 0;
+            const width = widget.style.width || widget.offsetWidth;
+            const height = widget.style.height || widget.offsetHeight;
+            
+            positions.push({
+                id: id,
+                x: parseFloat(x),
+                y: parseFloat(y),
+                width: parseFloat(width),
+                height: parseFloat(height)
+            });
+        });
+        
+        console.log('Widget positions:', positions);
+        // In a real implementation, you would send this data to the server
+    }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Power BI + Miro Dashboard Styling */
+    #dashboard-container {
+        min-height: 600px;
+        position: relative;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        background-image: linear-gradient(rgba(0, 0, 0, 0.05) 1px, transparent 1px), 
+                          linear-gradient(90deg, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+        background-size: 20px 20px;
+        background-position: -1px -1px;
+    }
+    
+    .dashboard-item {
+        transition: all 0.2s ease;
+        cursor: move;
+        margin-bottom: 15px;
+        touch-action: none;
+        z-index: 1;
+    }
+    .dashboard-item:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dashboard-item.is-dragging {
+        opacity: 0.8;
+        z-index: 10;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    /* Power BI styling for cards */
+    .card {
+        border: none;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        background-color: #fff;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 0.75rem 1rem;
+        cursor: move; /* Miro-like handle */
+    }
+    
+    .widget-handle {
+        user-select: none;
+    }
+    
+    /* Power BI chart styling */
+    .chart-container {
+        padding: 0.5rem;
+    }
+    
+    /* Miro-like resizing handle */
+    .dashboard-item::after {
+        content: '';
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+        width: 10px;
+        height: 10px;
+        background-image: radial-gradient(circle, #666 1px, transparent 2px);
+        background-size: 4px 4px;
+        background-position: center;
+        cursor: nwse-resize;
+    }
+    
+    /* Widget ghost when dragging (Miro style) */
+    .widget-ghost {
+        opacity: 0.3;
+        background: #c8ebfb;
+    
+    }
+    .chart-container {
+        min-height: 200px;
+    }
+</style>
+{% endblock %}

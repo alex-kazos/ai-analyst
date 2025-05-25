@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Dashboard - AI Analyst{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 rounded-lg">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="my-2"><i class="fas fa-chart-line me-2"></i>{% if dashboard %}Edit{% else %}Create{% endif %} Dashboard</h3>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">Dashboard Name</label>
+                            <input type="text" name="name" class="form-control" id="id_name" value="{{ form.name.value|default:'' }}" required>
+                            {% if form.name.errors %}
+                                <div class="text-danger">{{ form.name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">Description</label>
+                            <textarea name="description" class="form-control" id="id_description" rows="3">{{ form.description.value|default:'' }}</textarea>
+                            {% if form.description.errors %}
+                                <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_layout" class="form-label">Layout</label>
+                            <select name="layout" class="form-select" id="id_layout">
+                                <option value="grid" {% if form.layout.value == 'grid' %}selected{% endif %}>Grid Layout</option>
+                                <option value="fluid" {% if form.layout.value == 'fluid' %}selected{% endif %}>Fluid Layout</option>
+                                <option value="fixed" {% if form.layout.value == 'fixed' %}selected{% endif %}>Fixed Layout</option>
+                            </select>
+                            {% if form.layout.errors %}
+                                <div class="text-danger">{{ form.layout.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="id_data_sources" class="form-label">Data Sources</label>
+                            <select name="data_sources" class="form-select" id="id_data_sources" multiple>
+                                {% for data_source in data_sources %}
+                                    <option value="{{ data_source.id }}" {% if data_source.id in form.data_sources.value %}selected{% endif %}>{{ data_source.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select one or more data sources to use in this dashboard</div>
+                            {% if form.data_sources.errors %}
+                                <div class="text-danger">{{ form.data_sources.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="id_is_public" name="is_public" {% if form.is_public.value %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_public">Make dashboard public</label>
+                            </div>
+                            <div class="form-text">Public dashboards can be viewed by anyone with the link</div>
+                            {% if form.is_public.errors %}
+                                <div class="text-danger">{{ form.is_public.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>{% if dashboard %}Update{% else %}Create{% endif %} Dashboard
+                            </button>
+                            <a href="{% url 'dashboard_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Dashboard Templates Section -->
+            <div class="mt-5">
+                <h4 class="mb-3">Start with a Template</h4>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 cursor-pointer template-card" data-template="sales">
+                            <img src="https://via.placeholder.com/300x150/007bff/ffffff?text=Sales+Dashboard" class="card-img-top" alt="Sales Dashboard Template">
+                            <div class="card-body">
+                                <h5 class="card-title">Sales Dashboard</h5>
+                                <p class="card-text small">Track revenue, orders, and customer metrics</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 cursor-pointer template-card" data-template="marketing">
+                            <img src="https://via.placeholder.com/300x150/28a745/ffffff?text=Marketing+Dashboard" class="card-img-top" alt="Marketing Dashboard Template">
+                            <div class="card-body">
+                                <h5 class="card-title">Marketing Dashboard</h5>
+                                <p class="card-text small">Monitor campaign performance and leads</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 cursor-pointer template-card" data-template="financial">
+                            <img src="https://via.placeholder.com/300x150/6f42c1/ffffff?text=Financial+Dashboard" class="card-img-top" alt="Financial Dashboard Template">
+                            <div class="card-body">
+                                <h5 class="card-title">Financial Dashboard</h5>
+                                <p class="card-text small">Analyze revenue, expenses and profit margins</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cursor-pointer {
+        cursor: pointer;
+    }
+    .template-card {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .template-card:hover {
+        transform: translateY(-5px);
+        border-color: #007bff;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle template selection
+        const templateCards = document.querySelectorAll('.template-card');
+        
+        templateCards.forEach(card => {
+            card.addEventListener('click', function() {
+                const template = this.dataset.template;
+                
+                // Set dashboard name based on template
+                const nameInput = document.getElementById('id_name');
+                if (template === 'sales') {
+                    nameInput.value = 'Sales Performance Dashboard';
+                } else if (template === 'marketing') {
+                    nameInput.value = 'Marketing Analytics Dashboard';
+                } else if (template === 'financial') {
+                    nameInput.value = 'Financial Metrics Dashboard';
+                }
+                
+                // Highlight selected card and remove highlight from others
+                templateCards.forEach(c => {
+                    c.style.borderColor = 'transparent';
+                    c.style.transform = 'translateY(0)';
+                });
+                this.style.borderColor = '#007bff';
+                this.style.transform = 'translateY(-5px)';
+                
+                // Scroll to form top
+                document.querySelector('.card-header').scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+    });
+</script>
+{% endblock %}

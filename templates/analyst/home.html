@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Analyst - Home{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="p-5 mb-4 bg-gradient-primary text-white rounded-3 shadow-sm">
+        <div class="container-fluid py-5">
+            <h1 class="display-4 fw-bold">AI-Powered Data Analysis</h1>
+            <p class="col-md-8 fs-4">Upload your data file and instantly get beautiful visualizations, key metrics, and plain-English insights with no complex setup required.</p>
+            <div class="mt-4">
+                <a href="{% url 'data_source_create' %}" class="btn btn-light btn-lg shadow-sm" id="uploadButton">
+                    <i class="fas fa-upload me-2"></i>Upload Your Data File
+                </a>
+                <a href="{% url 'data_source_list' %}" class="btn btn-outline-light btn-lg ms-2">
+                    <i class="fas fa-chart-line me-2"></i>View Example Dashboards
+                </a>
+            </div>
+            <div class="mt-3 small text-light">
+                <strong>Supported formats:</strong> CSV, Excel (.xlsx, .xls)
+            </div>
+        </div>
+    </div>
+
+    <div class="row align-items-md-stretch">
+        <div class="col-lg-4 mb-4">
+            <div class="h-100 p-4 bg-white rounded-3 shadow-sm hover-lift">
+                <div class="text-center mb-3">
+                    <i class="fas fa-chart-bar fa-3x text-primary"></i>
+                </div>
+                <h2 class="h4 text-center">Instant Visualizations</h2>
+                <hr class="my-3">
+                <p>Automatically get the most appropriate visualization for your data:</p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check-circle text-primary me-2"></i>Interactive bar charts</li>
+                    <li><i class="fas fa-check-circle text-primary me-2"></i>Trend line graphs</li>
+                    <li><i class="fas fa-check-circle text-primary me-2"></i>Distribution histograms</li>
+                    <li><i class="fas fa-check-circle text-primary me-2"></i>Correlation heatmaps</li>
+                    <li><i class="fas fa-check-circle text-primary me-2"></i>Geographic maps</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="h-100 p-4 bg-white rounded-3 shadow-sm hover-lift">
+                <div class="text-center mb-3">
+                    <i class="fas fa-tachometer-alt fa-3x text-success"></i>
+                </div>
+                <h2 class="h4 text-center">Key Performance Metrics</h2>
+                <hr class="my-3">
+                <p>Automatically identify and calculate the most relevant metrics:</p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Total revenue & growth rate</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Average transaction value</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Top performing segments</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Customer retention rate</li>
+                    <li><i class="fas fa-check-circle text-success me-2"></i>Year-over-year comparisons</li>
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="h-100 p-4 bg-white rounded-3 shadow-sm hover-lift">
+                <div class="text-center mb-3">
+                    <i class="fas fa-lightbulb fa-3x text-warning"></i>
+                </div>
+                <h2 class="h4 text-center">Plain-English Insights</h2>
+                <hr class="my-3">
+                <p>Get concise narratives that explain what your data means:</p>
+                <div class="bg-light p-3 rounded mb-3 border">
+                    <p class="mb-2 small">"Sales increased by 24% in Q4, with the Electronics category showing the strongest growth at 32%. The Eastern region continues to be your top performer."</p>
+                    <p class="mb-0 small">"Customer acquisition cost has decreased while retention has improved, indicating that your recent marketing initiatives are having a positive impact."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-5 mb-4">
+        <h2 class="text-center mb-4">How It Works: <span class="text-primary">Just Upload & Go</span></h2>
+        <div class="row g-4 mt-2">
+            <div class="col-md-3">
+                <div class="text-center px-4">
+                    <div class="process-icon mb-3 mx-auto">
+                        <i class="fas fa-upload fa-2x text-primary"></i>
+                        <div class="process-number">1</div>
+                    </div>
+                    <h5>Upload Your File</h5>
+                    <p class="small text-muted">Drag and drop your CSV or Excel file - no preprocessing required</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center px-4">
+                    <div class="process-icon mb-3 mx-auto">
+                        <i class="fas fa-magic fa-2x text-primary"></i>
+                        <div class="process-number">2</div>
+                    </div>
+                    <h5>Automatic Cleaning</h5>
+                    <p class="small text-muted">Our AI detects and fixes missing values, outliers, and formatting issues</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center px-4">
+                    <div class="process-icon mb-3 mx-auto">
+                        <i class="fas fa-brain fa-2x text-primary"></i>
+                        <div class="process-number">3</div>
+                    </div>
+                    <h5>Instant Analysis</h5>
+                    <p class="small text-muted">Advanced algorithms analyze patterns, trends, and opportunities</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center px-4">
+                    <div class="process-icon mb-3 mx-auto">
+                        <i class="fas fa-chart-line fa-2x text-primary"></i>
+                        <div class="process-number">4</div>
+                    </div>
+                    <h5>Interactive Results</h5>
+                    <p class="small text-muted">Explore visualizations, metrics, and insights in real-time</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-5">
+        <div class="card border-0 shadow-sm bg-light">
+            <div class="card-body p-4">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h3>Ready to analyze your data?</h3>
+                        <p class="mb-lg-0">Get instant insights from your data files with just one click - no technical skills required.</p>
+                    </div>
+                    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                        <a href="{% url 'data_source_create' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-upload me-2"></i>Upload Your Data Now
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

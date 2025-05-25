@@ -1,0 +1,894 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ analysis.name }} - Results{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'data_source_list' %}">Data Sources</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'data_source_detail' analysis.data_source.id %}">{{ analysis.data_source.name }}</a></li>
+            <li class="breadcrumb-item active">{{ analysis.name }}</li>
+        </ol>
+    </nav>
+    
+    <!-- Analysis Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>{{ analysis.name }}</h1>
+            <p class="text-muted">{{ analysis.description|default:"No description provided" }}</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <span class="badge {% if analysis.status == 'completed' %}bg-success{% elif analysis.status == 'pending' %}bg-warning{% elif analysis.status == 'running' %}bg-info{% else %}bg-danger{% endif %} fs-6 mb-2">{{ analysis.status|title }}</span>
+            <div>
+                <small class="text-muted"><i class="far fa-calendar-alt me-1"></i> {{ analysis.created_at|date:"M d, Y" }}</small>
+                <small class="text-muted ms-3"><i class="fas fa-chart-pie me-1"></i> {{ analysis.get_analysis_type_display }}</small>
+            </div>
+            <!-- Analysis Actions Dropdown (matches Data Source style) -->
+            <div class="dropdown d-inline-block ms-2">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="analysisActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Analysis actions" style="border-radius: 0.6rem;">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow rounded-3 py-2" aria-labelledby="analysisActionsDropdown" style="min-width: 200px;">
+                    <li><a class="dropdown-item py-2" href="#" onclick="showRenameInline(); return false;">Rename</a></li>
+                    <li><a class="dropdown-item py-2" href="#" onclick="showDescInline(); return false;">Change Description</a></li>
+                    <li><a class="dropdown-item py-2" href="#" onclick="showUpdateSourceModal(); return false;">Update Data Source</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item py-2 text-danger d-flex align-items-center" href="#" onclick="showDeleteAnalysisModal(); return false;"><i class="fas fa-trash-alt me-2"></i>Delete</a></li>
+                </ul>
+            </div>
+
+            <!-- Inline Rename (hidden by default, shown on Rename) -->
+            <div id="analysis-name-edit-row" class="d-none mt-2" style="max-width:500px; position:relative;">
+              <div style="position:relative;">
+                <input type="text" id="analysis-name-input" class="form-control form-control-lg pr-5" value="{{ analysis.name }}" style="max-width:350px; padding-right:70px;">
+                <div style="position:absolute; top:50%; right:10px; transform:translateY(-50%); display:flex; gap:0.25rem;">
+                  <button id="analysis-rename-save-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="saveRenameAnalysis()" tabindex="0" title="Save" aria-label="Save" style="box-shadow:none;"><i class="fas fa-check"></i></button>
+                  <button id="analysis-rename-cancel-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="cancelRenameAnalysis()" tabindex="0" title="Cancel" aria-label="Cancel" style="box-shadow:none;"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+            </div>
+            <!-- Inline Description Edit (hidden by default, shown on Change Description) -->
+            <div id="analysis-desc-edit-row" class="d-none mt-2" style="max-width:500px; position:relative;">
+              <div style="position:relative;">
+                <textarea id="analysis-desc-input" class="form-control pr-5" rows="2" style="max-width:400px; padding-right:70px;"></textarea>
+                <div style="position:absolute; top:50%; right:10px; transform:translateY(-50%); display:flex; gap:0.25rem;">
+                  <button id="analysis-desc-save-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="saveDescAnalysis()" tabindex="0" title="Save" aria-label="Save" style="box-shadow:none;"><i class="fas fa-check"></i></button>
+                  <button id="analysis-desc-cancel-btn-inline" class="btn btn-light btn-sm p-1 m-0 border-0" onclick="cancelDescAnalysis()" tabindex="0" title="Cancel" aria-label="Cancel" style="box-shadow:none;"><i class="fas fa-times"></i></button>
+                </div>
+              </div>
+            </div>
+            <!-- Delete Modal (to be implemented) -->
+            <div id="deleteAnalysisModal" class="modal fade" tabindex="-1" aria-hidden="true">
+              <!-- Modal content for deleting analysis -->
+            </div>
+            <script>
+            // Inline Rename
+            function showRenameInline() {
+                document.getElementById('analysis-name-edit-row').classList.remove('d-none');
+                document.getElementById('analysis-name-input').focus();
+            }
+            function cancelRenameAnalysis() {
+                document.getElementById('analysis-name-edit-row').classList.add('d-none');
+            }
+            function saveRenameAnalysis() {
+                const newName = document.getElementById('analysis-name-input').value.trim();
+                if (!newName) { alert('Name cannot be empty.'); return; }
+                fetch(window.location.pathname + 'rename/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({ name: newName })
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector('h1').childNodes[0].textContent = newName + ' ';
+                        cancelRenameAnalysis();
+                    } else {
+                        alert(data.error || 'Failed to rename.');
+                    }
+                })
+                .catch(() => alert('Failed to rename.'));
+            }
+            // Inline Description
+            function showDescInline() {
+                document.getElementById('analysis-desc-edit-row').classList.remove('d-none');
+                document.getElementById('analysis-desc-input').focus();
+            }
+            function cancelDescAnalysis() {
+                document.getElementById('analysis-desc-edit-row').classList.add('d-none');
+            }
+            function saveDescAnalysis() {
+                const newDesc = document.getElementById('analysis-desc-input').value.trim();
+                fetch(window.location.pathname + 'update-description/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({ description: newDesc })
+                })
+                .then(resp => resp.json())
+                .then(data => {
+                    if (data.success) {
+                        document.querySelector('p.text-muted').innerHTML = newDesc ? newDesc : 'No description provided';
+                        cancelDescAnalysis();
+                    } else {
+                        alert(data.error || 'Failed to update description.');
+                    }
+                })
+                .catch(() => alert('Failed to update description.'));
+            }
+            // Update Data Source (placeholder)
+            function showUpdateSourceModal() {
+                // TODO: Implement modal for updating data source
+            }
+            // Delete Analysis
+            function showDeleteAnalysisModal() {
+                const modalHtml = `
+                <div class="modal-dialog">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title text-danger"><i class="fas fa-trash-alt me-2"></i>Delete Analysis</h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                      <p>Are you sure you want to delete this analysis? This action cannot be undone.</p>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                      <button type="button" class="btn btn-danger" id="confirmDeleteAnalysisBtn">Delete</button>
+                    </div>
+                  </div>
+                </div>`;
+                const modal = document.getElementById('deleteAnalysisModal');
+                modal.innerHTML = modalHtml;
+                var bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+                setTimeout(() => {
+                  document.getElementById('confirmDeleteAnalysisBtn').onclick = function() {
+                    fetch(window.location.pathname + 'delete/', {
+                      method: 'POST',
+                      headers: {'X-CSRFToken': getCSRFToken()}
+                    }).then(resp => resp.json())
+                      .then(data => {
+                        if (data.success) {
+                          window.location.href = document.querySelector('a[href*="data_source_detail"]').href;
+                        } else {
+                          alert(data.error || 'Failed to delete analysis.');
+                        }
+                      }).catch(() => alert('Failed to delete analysis.'));
+                  };
+                }, 100);
+            }
+            // CSRF helper
+            function getCSRFToken() {
+                const cookie = document.cookie.split(';').find(c => c.trim().startsWith('csrftoken='));
+                return cookie ? cookie.split('=')[1] : '';
+            }
+            </script>
+        </div>
+    </div>
+    <!-- Modals for analysis actions (implement JS/modal logic as needed) -->
+    <div id="renameAnalysisModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <!-- Modal content for renaming analysis -->
+    </div>
+    <div id="editDescriptionModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <!-- Modal content for editing description -->
+    </div>
+    <div id="updateAnalysisModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <!-- Modal content for updating analysis -->
+    </div>
+    <div id="deleteAnalysisModal" class="modal fade" tabindex="-1" aria-hidden="true">
+      <!-- Modal content for deleting analysis -->
+    </div>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        <h5><i class="fas fa-exclamation-triangle me-2"></i>Error</h5>
+        <p class="mb-0">{{ error }}</p>
+    </div>
+    {% endif %}
+    
+    {% if analysis.status == 'completed' and analysis.result %}
+        {% if analysis.analysis_type == 'quick_ai' %}
+            <!-- Quick AI Analysis Result -->
+            <div class="row">
+                <!-- Summary and Insights -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-primary bg-opacity-10">
+                            <h4 class="mb-0 text-primary"><i class="fas fa-brain me-2"></i>AI Insights</h4>
+                        </div>
+                        <div class="card-body">
+                            <h5>Summary</h5>
+                            <p>{{ analysis.result.summary }}</p>
+                            
+                            <h5>Key Insights</h5>
+                            <ul class="list-group list-group-flush">
+                                {% for insight in analysis.result.key_insights %}
+                                <li class="list-group-item">
+                                    <i class="fas fa-lightbulb text-warning me-2"></i>{{ insight }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Correlations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-info bg-opacity-10">
+                            <h4 class="mb-0 text-info"><i class="fas fa-link me-2"></i>Correlations</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Variable 1</th>
+                                            <th>Variable 2</th>
+                                            <th>Strength</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if analysis.result.correlations %}
+                                            {% for corr in analysis.result.correlations %}
+                                            <tr>
+                                                <td>{{ corr.var1 }}</td>
+                                                <td>{{ corr.var2 }}</td>
+                                                <td>{{ corr.strength }}</td>
+                                                <td>{{ corr.description }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">No correlations found</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <!-- Recommendations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-success bg-opacity-10">
+                            <h4 class="mb-0 text-success"><i class="fas fa-clipboard-check me-2"></i>Recommendations</h4>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                {% for rec in analysis.result.recommendations %}
+                                <li class="list-group-item">
+                                    <i class="fas fa-check-circle text-success me-2"></i>{{ rec }}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Visualizations -->
+                <div class="col-md-6 mb-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h4 class="mb-0 text-warning"><i class="fas fa-chart-line me-2"></i>Recommended Visualizations</h4>
+                        </div>
+                        <div class="card-body">
+                            {% if analysis.result.visualizations %}
+                                <div class="accordion" id="vizAccordion">
+                                    {% for viz in analysis.result.visualizations %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header">
+                                            <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#viz{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="viz{{ forloop.counter }}">
+                                                {{ viz.title }}
+                                            </button>
+                                        </h2>
+                                        <div id="viz{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#vizAccordion">
+                                            <div class="accordion-body">
+                                                <p>Chart type: <span class="badge bg-secondary">{{ viz.type }}</span></p>
+                                                <p>X-axis: <strong>{{ viz.x_axis }}</strong></p>
+                                                <p>Y-axis: <strong>{{ viz.y_axis }}</strong></p>
+                                                <a href="#" class="btn btn-sm btn-outline-primary" data-x="{{ viz.x_axis }}" data-y="{{ viz.y_axis }}" data-type="{{ viz.type }}" onClick="createVisualization(this); return false;">
+                                                    <i class="fas fa-eye me-1"></i>Generate Visualization
+                                                </a>
+                                                <div class="mt-3 viz-container" id="viz-container-{{ forloop.counter }}"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted text-center">No visualizations recommended</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% elif analysis.analysis_type == 'clustering' %}
+    <!-- Clustering Analysis Results -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-project-diagram me-2"></i>Clustering Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h5>What does this mean?</h5>
+                <p>This analysis grouped your data points into clusters based on their similarity. Each cluster represents a group of records that are more similar to each other than to those in other clusters.</p>
+            </div>
+            <div class="mb-3">
+                <h5>Cluster Sizes</h5>
+                {% if analysis.result.cluster_counts %}
+                <table class="table table-sm w-auto">
+                    <thead><tr><th>Cluster</th><th>Count</th></tr></thead>
+                    <tbody>
+                    {% for cluster, count in analysis.result.cluster_counts.items %}
+                        <tr><td>{{ cluster }}</td><td>{{ count }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted">No clusters found.</p>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <h5>Features Used</h5>
+                <p>{{ analysis.result.features_used|join:', ' }}</p>
+            </div>
+            <div class="mb-3">
+                <h5>Sample Data</h5>
+                {% if analysis.result.sample_data %}
+                <div style="max-height: 200px; overflow:auto;">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                            <tr>
+                                {% for key in analysis.result.sample_data.0.keys %}
+                                    <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in analysis.result.sample_data|slice:":5" %}
+                                <tr>
+                                    {% for val in row.values %}
+                                        <td>{{ val }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No sample data available.</p>
+                {% endif %}
+            </div>
+            <div class="mb-3">
+                <h5>Cluster Visualization</h5>
+                {% if analysis.result.plot_features and analysis.result.sample_data %}
+                <div id="cluster-viz" style="height:350px;"></div>
+                <div class="form-text">Each point represents a row in your data, colored by its assigned cluster. This helps you see how well-separated the clusters are.</div>
+                <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+                <script src="/static/js/cluster_viz.js"></script>
+                <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const sampleData = {{ analysis.result.sample_data|safe }};
+                    const xKey = '{{ analysis.result.plot_features.0 }}';
+                    const yKey = '{{ analysis.result.plot_features.1 }}';
+                    renderClusterScatterPlot('cluster-viz', sampleData, xKey, yKey, 'cluster');
+                });
+                </script>
+                {% else %}
+                <p class="text-muted">Visualization not available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% elif analysis.analysis_type == 'statistical' %}
+    <!-- Statistical Analysis Results -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-primary bg-opacity-10 d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Statistical Analysis</h4>
+            <div class="d-flex align-items-center">
+                <label for="columnSelector" class="me-2 mb-0">Select column:</label>
+                <select id="columnSelector" class="form-select form-select-sm" style="width: auto;">
+                    <option value="{{ analysis.result.column }}" selected>{{ analysis.result.column }}</option>
+                    {% for column in available_columns %}
+                        {% if column != analysis.result.column %}
+                            <option value="{{ column }}">{{ column }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <!-- Loading indicator -->
+            <div id="analysis-loading" class="d-none">
+                <div class="d-flex justify-content-center align-items-center p-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span class="ms-3">Analyzing data...</span>
+                </div>
+            </div>
+            
+            <!-- Analysis content -->
+            <div id="analysis-content">
+                <!-- Key Insights -->
+                {% if analysis.result.key_insights %}
+                <div class="p-4 pb-0">
+                    <h5 class="d-flex align-items-center"><i class="fas fa-lightbulb me-2 text-warning"></i>Key Insights</h5>
+                    <div class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+                        {% for insight in analysis.result.key_insights %}
+                        <div class="col">
+                            <div class="card h-100 border-0 shadow-sm bg-light bg-opacity-50">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="rounded-circle p-2 me-3 bg-{{ insight.type }} bg-opacity-25 text-{{ insight.type }}">
+                                            <i class="{{ insight.icon }}"></i>
+                                        </div>
+                                        <h6 class="card-title mb-0">{{ insight.title }}</h6>
+                                    </div>
+                                    <p class="card-text">{{ insight.message }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            
+            <div class="row mx-0">
+                <!-- Visualizations -->
+                <div class="col-lg-8 p-4">
+                    <h5 class="d-flex align-items-center mb-3"><i class="fas fa-chart-area me-2 text-primary"></i>Visualizations</h5>
+                    <div class="card border-0 shadow-sm">
+                        <div id="combined-visualization" style="height: 600px; width: 100%;">
+                            {{ analysis.result.visualizations.combined|safe }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Statistical Summary -->
+                <div class="col-lg-4 p-4 border-start bg-light bg-opacity-25">
+                    <h5 class="d-flex align-items-center mb-3"><i class="fas fa-calculator me-2 text-success"></i>Statistical Summary</h5>
+                    
+                    <!-- Basic Statistics Table -->
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom border-3 border-primary border-opacity-25">
+                            <h6 class="mb-0 fw-bold">Basic Statistics</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Count</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.count }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Mean</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.mean }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Median</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.median }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Standard Deviation</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.std }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Minimum</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.min }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Maximum</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.max }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Range</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.range }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">IQR</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.basic_stats.iqr }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Distribution Properties -->
+                    <div class="card mb-4 border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom border-3 border-info border-opacity-25">
+                            <h6 class="mb-0 fw-bold">Distribution Properties</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Skewness</th>
+                                            <td class="fw-bold text-end">
+                                                <span data-bs-toggle="tooltip" title="{{ analysis.result.additional_stats.skewness.interpretation }}">
+                                                    {{ analysis.result.additional_stats.skewness.formatted }}
+                                                    <i class="fas fa-info-circle text-info ms-1 small"></i>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Kurtosis</th>
+                                            <td class="fw-bold text-end">
+                                                <span data-bs-toggle="tooltip" title="{{ analysis.result.additional_stats.kurtosis.interpretation }}">
+                                                    {{ analysis.result.additional_stats.kurtosis.formatted }}
+                                                    <i class="fas fa-info-circle text-info ms-1 small"></i>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Distribution Type</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.analysis_summary.distribution_type }}</td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Coefficient of Variation</th>
+                                            <td class="fw-bold text-end">{{ analysis.result.analysis_summary.dispersion.coefficient_of_variation }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Quality -->
+                    <div class="card mb-3 border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom border-3 border-warning border-opacity-25">
+                            <h6 class="mb-0 fw-bold">Data Quality</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Missing Values</th>
+                                            <td class="fw-bold text-end">
+                                                {{ analysis.result.analysis_summary.data_quality.missing_values }} 
+                                                <span class="badge {% if analysis.result.analysis_summary.data_quality.missing_values > 0 %}bg-danger{% else %}bg-success{% endif %} bg-opacity-75 ms-1">
+                                                    {{ analysis.result.analysis_summary.data_quality.missing_percent }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th scope="row" class="text-muted">Outliers</th>
+                                            <td class="fw-bold text-end">
+                                                {{ analysis.result.analysis_summary.data_quality.outliers }}
+                                                <span class="badge {% if analysis.result.analysis_summary.data_quality.outliers > 0 %}bg-warning{% else %}bg-success{% endif %} bg-opacity-75 ms-1">
+                                                    {{ analysis.result.analysis_summary.data_quality.outlier_percent }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Box Plot Data Details -->
+            <div class="p-4 pt-0">
+                <h5 class="d-flex align-items-center"><i class="fas fa-box me-2 text-info"></i>Box Plot Details</h5>
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Minimum</th>
+                                        <th>Q1 (25%)</th>
+                                        <th>Median (50%)</th>
+                                        <th>Q3 (75%)</th>
+                                        <th>Maximum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="text-center">
+                                        <td>{{ analysis.result.box_plot_data.min }}</td>
+                                        <td>{{ analysis.result.box_plot_data.q1 }}</td>
+                                        <td class="fw-bold">{{ analysis.result.box_plot_data.median }}</td>
+                                        <td>{{ analysis.result.box_plot_data.q3 }}</td>
+                                        <td>{{ analysis.result.box_plot_data.max }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white p-2 text-muted fst-italic small">
+                        <i class="fas fa-info-circle me-1"></i> The box plot shows the distribution of values. The box represents the middle 50% of data, with the central line showing the median.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interpretation and Recommendations -->
+            <div class="p-4 pt-0">
+                <h5 class="d-flex align-items-center"><i class="fas fa-comment-alt me-2 text-success"></i>Interpretation</h5>
+                <div class="card border-0 shadow-sm mb-3 bg-light bg-opacity-50">
+                    <div class="card-body">
+                        <ul class="mb-0">
+                            <li>The mean is <span class="fw-bold">{{ analysis.result.basic_stats.mean }}</span>, which represents the average value of {{ analysis.result.column }}.</li>
+                            <li>The standard deviation is <span class="fw-bold">{{ analysis.result.basic_stats.std }}</span>, indicating the typical distance values are from the mean.</li>
+                            {% if analysis.result.additional_stats.skewness.value > 0.5 %}
+                            <li>The distribution is <span class="fw-bold text-warning">positively skewed</span> ({{ analysis.result.additional_stats.skewness.formatted }}), meaning there's a longer tail on the right side.</li>
+                            {% elif analysis.result.additional_stats.skewness.value < -0.5 %}
+                            <li>The distribution is <span class="fw-bold text-warning">negatively skewed</span> ({{ analysis.result.additional_stats.skewness.formatted }}), meaning there's a longer tail on the left side.</li>
+                            {% else %}
+                            <li>The distribution is <span class="fw-bold text-success">approximately symmetric</span> ({{ analysis.result.additional_stats.skewness.formatted }}).</li>
+                            {% endif %}
+                            {% if analysis.result.analysis_summary.data_quality.outliers > 0 %}
+                            <li>The data contains <span class="fw-bold text-warning">{{ analysis.result.analysis_summary.data_quality.outliers }} outliers</span> ({{ analysis.result.analysis_summary.data_quality.outlier_percent }}), which may influence statistical measures.</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- JavaScript for column selection and dynamic analysis -->
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const columnSelector = document.getElementById('columnSelector');
+                const analysisContent = document.getElementById('analysis-content');
+                const analysisLoading = document.getElementById('analysis-loading');
+                const analysisId = {{ analysis.id }};
+                
+                if (columnSelector) {
+                    columnSelector.addEventListener('change', function() {
+                        const selectedColumn = this.value;
+                        
+                        // Show loading indicator
+                        analysisContent.classList.add('d-none');
+                        analysisLoading.classList.remove('d-none');
+                        
+                        // Make AJAX request to get analysis for the selected column
+                        fetch(`/api/analysis/run/?analysis_id=${analysisId}&column=${selectedColumn}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.error) {
+                                    alert(`Error: ${data.error}`);
+                                } else {
+                                    // Reload the page with the new analysis
+                                    window.location.reload();
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An error occurred while analyzing the column. Please try again.');
+                            })
+                            .finally(() => {
+                                // Hide loading indicator if there was an error
+                                analysisLoading.classList.add('d-none');
+                                analysisContent.classList.remove('d-none');
+                            });
+                    });
+                }
+            });
+            </script>
+        </div>
+    </div>
+{% else %}
+    <!-- Other Analysis Types Results -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Analysis Results</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Results Summary</h5>
+                    <pre class="bg-light p-3 rounded">{{ analysis.result|default:"{}"|pprint }}</pre>
+                </div>
+                <div class="col-md-6">
+                    <h5>Visualization</h5>
+                    <div id="result-visualization" class="border rounded p-3 text-center">
+                        <p class="text-muted">Visualization not available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endif %}
+<!-- ... -->
+    
+        </div>
+    {% elif analysis.status == 'pending' %}
+        <div class="text-center py-5">
+            <i class="fas fa-hourglass-half fa-4x text-warning mb-3"></i>
+            <h3>Analysis queued</h3>
+            <p class="text-muted">Your analysis is in the queue and will start soon.</p>
+            <a href="{% url 'run_analysis' analysis.id %}" class="btn btn-primary mt-3">
+                <i class="fas fa-play-circle me-2"></i>Start Analysis Now
+            </a>
+        </div>
+    {% endif %}
+    
+    <!-- Actions -->
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{% url 'data_source_detail' analysis.data_source.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Data Source
+        </a>
+        
+        <div>
+            {% if analysis.status == 'completed' %}
+            <a href="#" class="btn btn-outline-success me-2">
+                <i class="fas fa-file-export me-2"></i>Export Results
+            </a>
+            <button type="button" class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#addToDashboardModal">
+                <i class="fas fa-plus-square me-2"></i>Add to Dashboard
+            </button>
+            {% endif %}
+            
+            {% if analysis.status == 'failed' %}
+            <a href="{% url 'run_analysis' analysis.id %}" class="btn btn-warning">
+                <i class="fas fa-sync me-2"></i>Retry Analysis
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add to Dashboard Modal -->
+<div class="modal fade" id="addToDashboardModal" tabindex="-1" aria-labelledby="addToDashboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToDashboardModalLabel">Add to Dashboard</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addToDashboardForm" method="post" action="{% url 'dashboard_detail' 1 %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="analysis_id" value="{{ analysis.id }}">
+                    
+                    <div class="mb-3">
+                        <label for="dashboardSelect" class="form-label">Select Dashboard</label>
+                        <select class="form-select" id="dashboardSelect" name="dashboard_id" required>
+                            <option value="">Choose a dashboard...</option>
+                            {% if dashboards %}
+                                {% for dashboard in dashboards %}
+                                    <option value="{{ dashboard.id }}">{{ dashboard.name }}</option>
+                                {% endfor %}
+                            {% else %}
+                                <!-- For demo purposes, we'll add a test dashboard option -->
+                                <option value="1">Test Dashboard</option>
+                            {% endif %}
+                        </select>
+                        <div class="form-text">
+                            <a href="{% url 'dashboard_list' %}" target="_blank">Create a new dashboard</a> if you don't see the one you want.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="widgetTitle" class="form-label">Widget Title</label>
+                        <input type="text" class="form-control" id="widgetTitle" name="widget_title" value="{{ analysis.name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="widgetSize" class="form-label">Widget Size</label>
+                        <select class="form-select" id="widgetSize" name="widget_size">
+                            <option value="small">Small (4 columns)</option>
+                            <option value="medium" selected>Medium (6 columns)</option>
+                            <option value="large">Large (8 columns)</option>
+                            <option value="full">Full Width (12 columns)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addToDashboardBtn">Add to Dashboard</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        // Enable all tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+        
+        // Handle add to dashboard button
+        const addToDashboardBtn = document.getElementById('addToDashboardBtn');
+        if (addToDashboardBtn) {
+            addToDashboardBtn.addEventListener('click', function() {
+                // Get form values
+                const dashboardId = document.getElementById('dashboardSelect').value;
+                const widgetTitle = document.getElementById('widgetTitle').value;
+                
+                if (!dashboardId) {
+                    alert('Please select a dashboard');
+                    return;
+                }
+                
+                if (!widgetTitle) {
+                    alert('Please enter a widget title');
+                    return;
+                }
+                
+                // For demo purposes, we'll redirect to the dashboard
+                // In a real application, this would submit the form via AJAX
+                const form = document.getElementById('addToDashboardForm');
+                
+                // Change the form action to point to the selected dashboard
+                form.action = form.action.replace(/\d+$/, dashboardId);
+                
+                // Submit the form
+                form.submit();
+            });
+        }
+    });
+    
+    function createVisualization(element) {
+        const xAxis = element.getAttribute('data-x');
+        const yAxis = element.getAttribute('data-y');
+        const chartType = element.getAttribute('data-type');
+        const containerId = element.parentNode.querySelector('.viz-container').id;
+        
+        // In a real application, you would fetch the actual data here
+        // For demo purposes, we'll create a random chart
+        const container = document.getElementById(containerId);
+        container.innerHTML = '<canvas></canvas>';
+        const canvas = container.querySelector('canvas');
+        
+        // Sample data
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+        const data = {
+            labels: labels,
+            datasets: [{
+                label: yAxis,
+                data: [65, 59, 80, 81, 56],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            }]
+        };
+        
+        // Create the chart
+        let chartConfig = {
+            type: chartType === 'bar' ? 'bar' : 
+                  chartType === 'line' ? 'line' : 
+                  chartType === 'pie' ? 'pie' : 'scatter',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: `${yAxis} by ${xAxis}`
+                    }
+                }
+            },
+        };
+        
+        new Chart(canvas, chartConfig);
+    }
+</script>
+{% endblock %}

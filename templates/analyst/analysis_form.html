@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}New Analysis - AI Analyst{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'home' %}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'data_source_list' %}">Data Sources</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'data_source_detail' data_source.id %}">{{ data_source.name }}</a></li>
+                    <li class="breadcrumb-item active">New Analysis</li>
+                </ol>
+            </nav>
+            
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-chart-line me-2"></i>Create New Analysis</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">Analysis Name</label>
+                            {{ form.name.errors }}
+                            <input type="text" class="form-control" id="id_name" name="name" required value="{{ form.name.value|default:'' }}">
+                            <div class="form-text">Give your analysis a descriptive name</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">Description (Optional)</label>
+                            {{ form.description.errors }}
+                            <textarea class="form-control" id="id_description" name="description" rows="3">{{ form.description.value|default:'' }}</textarea>
+                            <div class="form-text">Briefly describe what you're trying to analyze</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_analysis_type" class="form-label">Analysis Type</label>
+                            {{ form.analysis_type.errors }}
+                            <select class="form-select" id="id_analysis_type" name="analysis_type" required>
+                                <option value="" {% if not form.analysis_type.value %}selected{% endif %}>Select analysis type...</option>
+                                <option value="quick_ai" {% if form.analysis_type.value == 'quick_ai' %}selected{% endif %}>Quick AI Analysis</option>
+                                <option value="clustering" {% if form.analysis_type.value == 'clustering' %}selected{% endif %}>Clustering Analysis</option>
+                                <option value="classification" {% if form.analysis_type.value == 'classification' %}selected{% endif %}>Classification Analysis</option>
+                                <option value="regression" {% if form.analysis_type.value == 'regression' %}selected{% endif %}>Regression Analysis</option>
+                                <option value="time_series" {% if form.analysis_type.value == 'time_series' %}selected{% endif %}>Time Series Analysis</option>
+                                <option value="statistical" {% if form.analysis_type.value == 'statistical' %}selected{% endif %}>Statistical Analysis</option>
+                                <option value="custom" {% if form.analysis_type.value == 'custom' %}selected{% endif %}>Custom Analysis</option>
+                            </select>
+                            <div class="form-text">Choose the type of analysis to perform</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="id_query" class="form-label">Query or Instructions (Optional)</label>
+                            {{ form.query.errors }}
+                            <textarea class="form-control" id="id_query" name="query" rows="4" placeholder="SQL query or analysis prompt...">{{ form.query.value|default:'' }}</textarea>
+                            <div class="form-text">Provide specific instructions or SQL query for your analysis</div>
+                        </div>
+                        
+                        <!-- Dynamic Parameters Section -->
+                        <div id="clusteringParams" class="mb-4 analysis-params" style="display: none;">
+                            <h5 class="mb-3">Clustering Parameters</h5>
+                            
+                            <div class="mb-3">
+                                <label for="id_algorithm" class="form-label">Clustering Algorithm</label>
+                                <select class="form-select" id="id_algorithm" name="algorithm">
+                                    <option value="kmeans" selected>K-Means (specify number of clusters)</option>
+                                    <option value="dbscan">DBSCAN (automatic clustering)</option>
+                                </select>
+                                <div class="form-text">Choose the clustering algorithm to use</div>
+                            </div>
+                            
+                            <div class="mb-3" id="numClustersField">
+                                <label for="id_num_clusters" class="form-label">Number of Clusters</label>
+                                <input type="number" class="form-control" id="id_num_clusters" name="num_clusters" min="2" max="20" value="3">
+                                <div class="form-text">Specify how many clusters to create (K-Means only)</div>
+                            </div>
+                            
+                            <div class="mb-3" id="dbscanParamsField" style="display: none;">
+                                <label for="id_eps" class="form-label">Maximum Distance (eps)</label>
+                                <input type="number" step="0.1" class="form-control" id="id_eps" name="eps" min="0.1" value="0.5">
+                                <div class="form-text">Maximum distance between points in a cluster</div>
+                                
+                                <label for="id_min_samples" class="form-label" class="mt-3">Minimum Samples</label>
+                                <input type="number" class="form-control" id="id_min_samples" name="min_samples" min="2" value="5">
+                                <div class="form-text">Minimum number of samples to form a cluster</div>
+                            </div>
+                        </div>
+                        
+                        <div id="statisticalParams" class="mb-4 analysis-params" style="display: none;">
+                            <h5 class="mb-3">Statistical Analysis Parameters</h5>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="id_include_visualizations" name="include_visualizations" checked>
+                                <label class="form-check-label" for="id_include_visualizations">Include interactive visualizations</label>
+                                <div class="form-text">Show detailed histogram and box plots</div>
+                            </div>
+                            
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="id_highlight_insights" name="highlight_insights" checked>
+                                <label class="form-check-label" for="id_highlight_insights">Highlight key insights</label>
+                                <div class="form-text">Automatically identify and explain important patterns</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'data_source_detail' data_source.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Data Source
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-rocket me-2"></i>Run Analysis
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4 shadow-sm border-info">
+                <div class="card-header bg-info bg-opacity-10 text-info">
+                    <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Analysis Tips</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Analysis Types Explained:</h6>
+                    <ul class="mb-0">
+                        <li><strong>Quick AI Analysis:</strong> Get instant AI-powered insights, patterns and visualizations</li>
+                        <li><strong>Clustering:</strong> Group similar data points together to find patterns</li>
+                        <li><strong>Classification:</strong> Predict categorical outcomes based on features</li>
+                        <li><strong>Regression:</strong> Predict numerical values based on features</li>
+                        <li><strong>Time Series:</strong> Analyze time-dependent data and forecast future values</li>
+                        <li><strong>Statistical:</strong> Calculate descriptive statistics and correlations</li>
+                        <li><strong>Custom:</strong> Provide specific instructions for a custom analysis</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the analysis type select element
+        const analysisTypeSelect = document.getElementById('id_analysis_type');
+        const algorithmSelect = document.getElementById('id_algorithm');
+        
+        // Add event listener to handle changes
+        analysisTypeSelect.addEventListener('change', function() {
+            // Hide all parameter sections first
+            document.querySelectorAll('.analysis-params').forEach(section => {
+                section.style.display = 'none';
+            });
+            
+            // Show the appropriate section based on the selected analysis type
+            if (this.value === 'clustering') {
+                document.getElementById('clusteringParams').style.display = 'block';
+            } else if (this.value === 'statistical') {
+                document.getElementById('statisticalParams').style.display = 'block';
+            }
+        });
+        
+        // Handle algorithm change in clustering
+        algorithmSelect.addEventListener('change', function() {
+            if (this.value === 'kmeans') {
+                document.getElementById('numClustersField').style.display = 'block';
+                document.getElementById('dbscanParamsField').style.display = 'none';
+            } else if (this.value === 'dbscan') {
+                document.getElementById('numClustersField').style.display = 'none';
+                document.getElementById('dbscanParamsField').style.display = 'block';
+            }
+        });
+        
+        // Trigger change event on page load to initialize the form correctly
+        analysisTypeSelect.dispatchEvent(new Event('change'));
+    });
+</script>
+{% endblock %}

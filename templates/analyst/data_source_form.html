@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Data Source - AI Analyst{% endblock %}
+
+{% block extra_css %}
+<style>
+    .connection-fields, .file-fields, .api-fields {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-database me-2"></i>Add New Data Source</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="id_name" name="name" required>
+                            <div class="form-text">A descriptive name for your data source</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_description" class="form-label">Description</label>
+                            <textarea class="form-control" id="id_description" name="description" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="id_source_type" class="form-label">Source Type</label>
+                            <select class="form-select source-type-select" id="id_source_type" name="source_type" required onchange="toggleSourceFields(this.value)">
+                                <option value="" selected disabled>Select a source type</option>
+                                <option value="file">File Upload (CSV, Excel, JSON)</option>
+                            </select>
+                        </div>
+                        
+                        <!-- File Upload Fields -->
+                        <div id="file-fields" class="file-fields mb-3">
+                            <label for="id_file" class="form-label">Upload File</label>
+                            <input type="file" class="form-control" id="id_file" name="file">
+                            <div class="form-text">Accepted formats: CSV, Excel (.xls, .xlsx), JSON</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{% url 'data_source_list' %}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Save Data Source
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleSourceFields(sourceType) {
+        // Hide file fields first
+        document.getElementById('file-fields').style.display = 'none';
+        // Show file fields if file is selected
+        if (sourceType === 'file') {
+            document.getElementById('file-fields').style.display = 'block';
+        }    
+    }
+    
+    // Initialize form state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const sourceType = document.getElementById('id_source_type').value;
+        if (sourceType) {
+            toggleSourceFields(sourceType);
+        }
+    });
+</script>
+{% endblock %}
