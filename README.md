@@ -2,7 +2,7 @@ N# AI Analyst
 
 A Django-based AI data analysis platform with dashboard visualization, designed to analyze data, generate insights, and visualize results in customizable dashboards.
 
-![AI Analyst Dashboard](https://via.placeholder.com/800x400?text=AI+Analyst+Dashboard)
+![alt text](image.png)
 
 ## Features
 

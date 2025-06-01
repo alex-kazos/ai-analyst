@@ -19,9 +19,17 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h5 class="card-title mb-0">{{ source.name }}</h5>
-                            <span class="badge {% if source.source_type == 'file' %}bg-success{% elif source.source_type == 'mysql' %}bg-primary{% elif source.source_type == 'postgresql' %}bg-info{% elif source.source_type == 'supabase' %}bg-warning{% else %}bg-secondary{% endif %}">
-                                {{ source.get_source_type_display }}
-                            </span>
+                            {% if source.source_type == 'file' %}
+                                <span class="badge bg-success">File Upload</span>
+                            {% elif source.source_type == 'mysql' %}
+                                <span class="badge bg-primary">{{ source.get_source_type_display }}</span>
+                            {% elif source.source_type == 'postgresql' %}
+                                <span class="badge bg-info">{{ source.get_source_type_display }}</span>
+                            {% elif source.source_type == 'supabase' %}
+                                <span class="badge bg-warning">{{ source.get_source_type_display }}</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ source.get_source_type_display }}</span>
+                            {% endif %}
                         </div>
                         <p class="card-text text-muted small">{{ source.description|default:'No description provided' }}</p>
                         <p class="card-text mb-0">
