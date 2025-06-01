@@ -1,31 +1,32 @@
-N# AI Analyst
+# AI Analyst
 
-A Django-based AI data analysis platform with dashboard visualization, designed to analyze data, generate insights, and visualize results in customizable dashboards.
+A Django-based AI data analysis platform designed to analyze data, generate insights, and visualize results through various AI-powered analysis techniques.
 
 ![alt text](image.png)
 
 ## Features
 
-- **Data Source Management**: Upload CSV, Excel, JSON files or connect to databases (MySQL, PostgreSQL, Supabase)
-- **AI-Powered Analysis**: Run various analyses including clustering, classification, regression, time series, and statistical analysis
+- **Data Source Management**: Upload CSV, Excel, JSON, Parquet, Feather, and other file formats or connect to databases (MySQL, PostgreSQL, Supabase)
+- **AI-Powered Analysis**: Run various analyses including clustering, classification, regression, and enhanced statistical analysis
+- **Customizable Clustering**: Choose between different clustering algorithms (K-Means, DBSCAN) and configure their parameters
 - **Natural Language Interface**: Ask questions about your data in plain English
-- **Interactive Dashboards**: Create customizable dashboards with drag-and-drop widgets
+- **Data Management**: Delete data sources with confirmation and remove individual analyses
+- **User-Friendly Statistical Analysis**: Improved visualizations and highlighted insights
 - **Dynamic Visualizations**: Automatically generate appropriate visualizations based on data analysis
-- **Dashboard Widgets**: Add analysis results as widgets to dashboards with various chart types (bar, line, pie)
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.8+
-- Django 4.2.10
-- Node.js (for some frontend dependencies)
+- Django 5.2.1
+- OpenAI API key
 
 ### Setup
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/ai-analyst.git
+   git clone https://github.com/alex-kazos/ai-analyst.git
    cd ai-analyst
    ```
 
@@ -87,22 +88,21 @@ A Django-based AI data analysis platform with dashboard visualization, designed 
 4. Run the analysis
 5. View the results, including AI-generated insights and visualizations
 
-### Creating Dashboards
+### Asking Questions About Your Data
 
-1. Navigate to the Dashboards section
-2. Click "Create Dashboard"
-3. Give your dashboard a name and description
-4. Add widgets from your analyses
-5. Customize widget size, position, and appearance
-6. Save your dashboard
+1. Select a data source
+2. Click on the "Ask" button
+3. Enter your question in natural language
+4. View the AI-generated response with relevant visualizations
 
 ## Technologies Used
 
-- **Backend**: Django, Python, pandas, numpy, scikit-learn
-- **Frontend**: HTML, CSS, JavaScript, Bootstrap
-- **Visualization**: Chart.js
-- **AI/ML**: OpenAI API, scikit-learn, TensorFlow
-- **Database**: SQLite (development), PostgreSQL (production)
+- **Backend**: Django 5.2.1, Python, pandas 2.2.3, numpy 2.2.6, scikit-learn 1.6.1
+- **Frontend**: HTML, CSS, JavaScript, Bootstrap, django-crispy-forms 2.4
+- **Visualization**: matplotlib 3.10.3, plotly 6.1.2
+- **AI/ML**: OpenAI API 1.82.1, langchain 0.3.25
+- **Database**: MySQL, PostgreSQL, SQLAlchemy 2.0.41, Supabase 2.15.2
+- **File Formats**: pyarrow 14.0.2, fastparquet 2023.10.1, openpyxl 3.1.2, tables 3.9.1 (HDF5), pyorc 0.8.0 (ORC)
 
 ## Contributing
 
