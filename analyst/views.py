@@ -56,6 +56,7 @@ def api_data_source_ai_analysis(request, pk):
             "visualizations": ai_result.get('visualizations', []),
             "numeric_columns": ai_result.get('numeric_columns', []),
             "selected_column": ai_result.get('selected_column'),
+            "dataset_description": ai_result.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
         })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -178,21 +179,92 @@ def data_source_detail(request, pk):
     try:
         # For file-based data sources
         if data_source.source_type == 'file' and data_source.file:
-            if data_source.file_type == 'csv':
-                try:
-                    df = pd.read_csv(data_source.file.path, encoding='utf-8')
-                except UnicodeDecodeError:
-                    df = pd.read_csv(data_source.file.path, encoding='latin1')
-            elif data_source.file_type in ['xls', 'xlsx']:
-                df = pd.read_excel(data_source.file.path)
-            elif data_source.file_type == 'json':
-                df = pd.read_json(data_source.file.path)
-            else:
-                raise ValueError(f"Unsupported file type: {data_source.file_type}")
+            try:
+                if data_source.file_type == 'csv':
+                    try:
+                        df = pd.read_csv(data_source.file.path, encoding='utf-8')
+                    except UnicodeDecodeError:
+                        df = pd.read_csv(data_source.file.path, encoding='latin1')
+                elif data_source.file_type in ['xls', 'xlsx']:
+                    df = pd.read_excel(data_source.file.path)
+                elif data_source.file_type == 'json':
+                    df = pd.read_json(data_source.file.path)
+                elif data_source.file_type == 'parquet':
+                    df = pd.read_parquet(data_source.file.path)
+                elif data_source.file_type == 'feather':
+                    df = pd.read_feather(data_source.file.path)
+                elif data_source.file_type == 'pickle':
+                    df = pd.read_pickle(data_source.file.path)
+                elif data_source.file_type == 'hdf':
+                    df = pd.read_hdf(data_source.file.path)
+                elif data_source.file_type == 'orc':
+                    df = pd.read_orc(data_source.file.path)
+                else:
+                    raise ValueError(f"Unsupported file type: {data_source.file_type}")
+            except Exception as e:
+                logger.error(f"Error loading file {data_source.file.path}: {str(e)}")
+                raise ValueError(f"Error loading file: {str(e)}")
+                
+            # Try to convert potential numeric columns that are stored as strings
+            for col in df.columns:
+                # Check if column name suggests numeric content
+                if any(term in col.lower() for term in ['order', 'number', 'num', 'qty', 'price', 'amount', 'sales', 'id']):
+                    try:
+                        # If >80% of values can be converted to numeric, convert the column
+                        numeric_values = pd.to_numeric(df[col], errors='coerce')
+                        if numeric_values.notna().mean() > 0.8:
+                            df[col] = numeric_values
+                    except:
+                        pass
             
-            # Get column data types
-            dtypes = df.dtypes.astype(str).to_dict()
-            columns = [{'name': col, 'type': dtypes[col]} for col in df.columns]
+            # Get column data types and enhance classification
+            columns = []
+            numeric_columns = []
+            text_columns = []
+            date_columns = []
+            
+            # First pass - get standard type classification
+            standard_numeric = df.select_dtypes(include=['int', 'float', 'int64', 'float64']).columns.tolist()
+            
+            for col in df.columns:
+                dtype_str = str(df[col].dtype)
+                col_type = dtype_str
+                
+                # Enhanced detection for numeric columns
+                is_numeric = False
+                
+                # Check standard numeric types
+                if col in standard_numeric:
+                    is_numeric = True
+                # Check column name patterns
+                elif any(term in col.lower() for term in ['order', 'number', 'num', 'qty', 'quantity', 'price', 'amount', 'sales', 'id']):
+                    # Try to convert sample to numeric
+                    try:
+                        sample = df[col].dropna().head(100)
+                        # If most values can be converted to numeric
+                        numeric_ratio = pd.to_numeric(sample, errors='coerce').notna().mean()
+                        if numeric_ratio > 0.8:  # If >80% are numeric
+                            is_numeric = True
+                            col_type = 'numeric'  # Override type for display
+                    except:
+                        pass
+                
+                # Categorize column
+                if is_numeric:
+                    numeric_columns.append(col)
+                elif 'datetime' in dtype_str or 'date' in col.lower() or 'time' in col.lower():
+                    date_columns.append(col)
+                    col_type = 'datetime'
+                else:
+                    text_columns.append(col)
+                    col_type = 'text'
+                
+                # Add to columns list with enhanced type information
+                columns.append({
+                    'name': col, 
+                    'type': col_type,
+                    'category': 'numeric' if is_numeric else ('date' if col in date_columns else 'text')
+                })
             # Convert preview data to a list of lists instead of list of dicts for easier template access
             preview_data = df.head(10).values.tolist()
         
@@ -239,7 +311,11 @@ def data_source_detail(request, pk):
         'analyses': analyses,
         'insights': insights,
         'recommendations': recommendations,
-        'visualizations': json.dumps(visualizations)
+        'visualizations': json.dumps(visualizations),
+        # Add column type counts for direct template access
+        'numeric_columns': numeric_columns if 'numeric_columns' in locals() else [],
+        'text_columns': text_columns if 'text_columns' in locals() else [],
+        'date_columns': date_columns if 'date_columns' in locals() else []
     }
     
     return render(request, 'analyst/data_source_detail.html', context)

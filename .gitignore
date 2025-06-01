@@ -25,7 +25,10 @@ var/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-media
+media/
+static/
+staticfiles/
+collected_static/
 
 # Environment variables
 .env
@@ -38,17 +41,44 @@ media
 venv/
 ENV/
 .venv/
+env/
 
 # IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+.DS_Store
 
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Analyst AI cache
+# Data files
+*.csv
+*.xlsx
+*.xls
+*.json
+data/
+uploads/
+
+# AI Analyst specific
+.ai_cache/
+.analysis_cache/
+__ai_cache__/
+analysis_results/
+temporary_files/
+
+# Deployment
+.netlify
+.vercel
+.aws/
+.ebextensions/
+
+# Backup files
+*.bak
+*~
+*.tmp
+*.old
 analyst/.cache/
 
 # Mac OS

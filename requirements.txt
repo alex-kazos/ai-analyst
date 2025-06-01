@@ -16,3 +16,10 @@ mysqlclient==2.2.7
 django-cors-headers==4.7.0
 langchain==0.3.25
 jinjasql==0.1.8
+
+# Additional file format support
+pyarrow==14.0.2
+fastparquet==2023.10.1
+tables==3.9.1  # For HDF5 support
+pyorc==0.8.0  # For ORC format support
+openpyxl==3.1.2  # Better Excel support

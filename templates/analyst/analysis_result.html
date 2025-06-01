@@ -205,6 +205,9 @@
                             <h4 class="mb-0 text-primary"><i class="fas fa-brain me-2"></i>AI Insights</h4>
                         </div>
                         <div class="card-body">
+                            <h5 class="mb-3">Dataset Overview</h5>
+                            <p class="mb-4 ps-2 border-start border-3 border-primary bg-light bg-opacity-25 p-3">{{ analysis.result.dataset_description|default:"This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends. The analysis provides insights into business performance and opportunities for optimization." }}</p>
+                            
                             <h5>Summary</h5>
                             <p>{{ analysis.result.summary }}</p>
                             

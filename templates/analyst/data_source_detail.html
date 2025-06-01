@@ -180,15 +180,15 @@
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <span><i class="fas fa-hashtag me-2 text-info"></i>Numeric Columns</span>
-                                <span class="badge bg-info rounded-pill" id="numericColsCount">--</span>
+                                <span class="badge bg-info rounded-pill" id="numericColsCount">{{ numeric_columns|length }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <span><i class="fas fa-font me-2 text-success"></i>Text Columns</span>
-                                <span class="badge bg-success rounded-pill" id="textColsCount">--</span>
+                                <span class="badge bg-success rounded-pill" id="textColsCount">{{ text_columns|length }}</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                                 <span><i class="fas fa-calendar-alt me-2 text-warning"></i>Date Columns</span>
-                                <span class="badge bg-warning rounded-pill" id="dateColsCount">--</span>
+                                <span class="badge bg-warning rounded-pill" id="dateColsCount">{{ date_columns|length }}</span>
                             </li>
                         </ul>
                         <div id="columnTypeDetails" class="mt-3 small">
@@ -756,43 +756,77 @@ function saveFileUpdate() {
     }
 
     // Utility function to identify column types based on the data
-    function analyzeColumnTypes(dataColumns) {
-        // Get all column data
-        const columnData = {};
-        const columnNames = Object.keys(dataColumns || {});
-        
-        // Arrays to hold different column types
+    // On page load, initialize column statistics
+    $(document).ready(function() {
+        // Initialize column counts directly from the backend data
         const numericCols = [];
         const textCols = [];
         const dateCols = [];
         const otherCols = [];
         
-        // Analyze the columns and categorize them
-        columnNames.forEach(colName => {
-            const colType = dataColumns[colName]?.dtype || '';
-            
-            // Check column type based on dtype
-            if (colType.includes('int') || colType.includes('float')) {
-                numericCols.push(colName);
-            } else if (colType.includes('date') || colType.includes('time')) {
-                dateCols.push(colName);
-            } else if (colType.includes('str') || colType.includes('object')) {
-                textCols.push(colName);
-            } else {
-                otherCols.push(colName);
-            }
+        // Parse the columns from the data preview table
+        const columnNames = [];
+        $('#dataPreview thead th').each(function() {
+            columnNames.push($(this).text().trim());
         });
         
-        return {
-            numeric: numericCols,
+        // DIRECT APPROACH: Categorize each column in the preview
+        columnNames.forEach(colName => {
+            // Special case handling for columns that should always be numeric
+            if (colName.toLowerCase().includes('order') || 
+                colName.toLowerCase().includes('number') || 
+                colName.toLowerCase().includes('id') || 
+                colName.toLowerCase().includes('qty') || 
+                colName.toLowerCase().includes('price') || 
+                colName.toLowerCase().includes('amount')) {
+                // These columns should always be numeric
+                numericCols.push(colName);
+            } 
+            // Otherwise, check dataColumns if available
+            else if (dataColumns && dataColumns[colName]) {
+                const columnInfo = dataColumns[colName];
+                const colType = columnInfo.type || columnInfo.dtype || '';
+                
+                if (colType.includes('int') || colType.includes('float') || 
+                    colType === 'numeric' || colType.includes('number')) {
+                    numericCols.push(colName);
+                } else if (colType.includes('date') || colType.includes('time')) {
+                    dateCols.push(colName);
+                } else {
+                    textCols.push(colName);
             text: textCols,
             date: dateCols,
             other: otherCols
         };
     }
     
+    // Hard-code numeric columns if you're expecting specific ones
+    function hardCodeSpecialColumns(columnTypes, allColumns) {
+        // Check for specific columns we always want to treat as numeric
+        allColumns.forEach(col => {
+            if (col.toLowerCase().includes('order') || col.toLowerCase().includes('number')) {
+                // If it's not already in numeric columns, add it
+                if (!columnTypes.numeric.includes(col)) {
+                    columnTypes.numeric.push(col);
+                    // Remove from other categories if present
+                    columnTypes.text = columnTypes.text.filter(c => c !== col);
+                    columnTypes.date = columnTypes.date.filter(c => c !== col);
+                    columnTypes.other = columnTypes.other.filter(c => c !== col);
+                }
+            }
+        });
+        return columnTypes;
+    }
+
     // Function to update the column statistics display
     function updateColumnStatistics(columnTypes) {
+        // Apply special column handling
+        let allColumns = [];
+        document.querySelectorAll('#dataPreview th').forEach(th => {
+            allColumns.push(th.textContent);
+        });
+        columnTypes = hardCodeSpecialColumns(columnTypes, allColumns);
+        
         // Update counts
         document.getElementById('numericColsCount').textContent = columnTypes.numeric.length;
         document.getElementById('textColsCount').textContent = columnTypes.text.length;

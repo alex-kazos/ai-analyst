@@ -12,7 +12,18 @@ def get_file_path(instance, filename):
 
 class DataSource(models.Model):
     TYPE_CHOICES = [
-        ('file', 'File Upload (CSV, Excel, JSON)')
+        ('file', 'File Upload (CSV, Excel, JSON, Parquet, Feather, etc)')
+    ]
+    
+    FILE_TYPE_CHOICES = [
+        ('csv', 'CSV'),
+        ('xlsx', 'Excel'),
+        ('json', 'JSON'),
+        ('parquet', 'Parquet'),
+        ('feather', 'Feather'),
+        ('pickle', 'Pickle'),
+        ('hdf', 'HDF5'),
+        ('orc', 'ORC')
     ]
     
     name = models.CharField(max_length=255)
@@ -24,7 +35,7 @@ class DataSource(models.Model):
     
     # For file uploads
     file = models.FileField(upload_to=get_file_path, blank=True, null=True)
-    file_type = models.CharField(max_length=20, blank=True, null=True)  # csv, excel, etc.
+    file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES, blank=True, null=True)
     
     # For database connections
 

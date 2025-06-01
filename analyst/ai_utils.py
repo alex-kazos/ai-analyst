@@ -161,6 +161,7 @@ def generate_mock_analysis(df, analysis_type=None, query=None):
     # Create the mock result
     mock_result = {
         "summary": f"Analysis of your dataset with {num_rows} records and {num_cols} variables shows several patterns and insights for consideration.",
+        "dataset_description": f"This dataset contains {num_rows} records with {num_cols} variables including {', '.join(numeric_cols[:3]) if numeric_cols else 'no numeric columns'}. The data provides insights into business performance metrics and operational indicators.",
         "key_insights": insights,
         "visualizations": visualizations,
         "correlations": correlations,
@@ -178,6 +179,7 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
     - Always return two visualizations (distribution and value counts for selected column).
     - Always return numeric_columns and selected_column.
     - Also return column type information for improved data statistics display.
+    - Generate dataset description using OpenAI API
     """
     import numpy as np
     import pandas as pd
@@ -188,7 +190,8 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
         'visualizations': [],
         'numeric_columns': [],
         'selected_column': None,
-        'column_info': {}  # Added column info dictionary
+        'column_info': {},  # Added column info dictionary
+        'dataset_description': ''  # Added dataset description field
     }
     # Populate column_info with data types for each column
     for col in df.columns:
@@ -198,7 +201,33 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             'missing_count': df[col].isna().sum()
         }
         
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    # Create histograms for numeric columns
+    numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+    
+    # Add columns with numeric-looking names that might be stored as strings
+    numeric_pattern = ['number', 'num', 'count', 'qty', 'price', 'amount', 'sales', 'order', 'id', 'revenue', 'profit']
+    potential_numeric_cols = []
+    
+    # Check column names for numeric patterns
+    for col in df.columns:
+        col_lower = col.lower()
+        if any(term in col_lower for term in numeric_pattern) and col not in numeric_cols:
+            potential_numeric_cols.append(col)
+    
+    # Try converting potential numeric columns
+    for col in potential_numeric_cols:
+        try:
+            # If column has numeric data but stored as string, convert and include it
+            numeric_series = pd.to_numeric(df[col], errors='coerce')
+            # If at least 80% of values can be converted successfully, treat as numeric
+            if numeric_series.notna().mean() >= 0.8:
+                # Store converted values
+                df[col] = numeric_series
+                numeric_cols.append(col)
+        except Exception as e:
+            logger.warning(f"Error converting column {col}: {e}")
+            pass  # Skip if conversion fails
+    
     if not numeric_cols:
         result['key_insights'].append('No numeric columns available for visualization.')
         return result
@@ -242,8 +271,25 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             'y_axis_label': 'Frequency'
         }
         
-        # Histogram with improved bin labeling
-        hist, bins = np.histogram(df[col].dropna(), bins=10)
+        # Histogram generation with improved handling of different column types
+        try:
+            # Check if column originally had a string dtype
+            original_dtype = df[col].dtype
+            if original_dtype == 'object':
+                # For columns that were converted from string to numeric
+                numeric_values = pd.to_numeric(df[col].dropna(), errors='coerce').dropna()
+                if len(numeric_values) > 0:
+                    hist, bins = np.histogram(numeric_values, bins=10)
+                else:
+                    # Fallback if conversion fails
+                    hist, bins = np.array([0]), np.array([0, 1])
+            else:
+                # Standard numeric columns
+                hist, bins = np.histogram(df[col].dropna(), bins=10)
+        except Exception as e:
+            logger.warning(f"Error creating histogram for {col}: {e}")
+            # Safe fallback
+            hist, bins = np.array([0]), np.array([0, 1])
         
         # Create more readable bin labels
         bin_labels = []
@@ -343,6 +389,7 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
                 cached = json.load(f)
                 result['key_insights'] = cached.get('key_insights', [])
                 result['recommendations'] = cached.get('recommendations', [])
+                result['dataset_description'] = cached.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
                 cache_hit = True
                 logger.info("Using cached AI insights")
         except Exception as e:
@@ -354,7 +401,7 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             sample_data = df.head(5).to_string()
             data_info = df.describe().to_string()
             column_info = "\n".join([f"{col} ({df[col].dtype}): {df[col].nunique()} unique values" for col in df.columns])
-            system_prompt = "You are an expert data analyst. Given a dataset, generate 3 key insights and 3 recommendations. Return a JSON with keys: key_insights, recommendations."
+            system_prompt = "You are an expert data analyst. Given a dataset, generate a concise dataset description, 3 key insights, and 3 recommendations. Return a JSON with keys: dataset_description, key_insights, recommendations."
             user_prompt = f"Sample data:\n{sample_data}\n\nData summary:\n{data_info}\n\nColumns:\n{column_info}"
             
             # Use a newer model that supports JSON mode
@@ -380,10 +427,15 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             ai_json = json.loads(result_text)
             result['key_insights'] = ai_json.get('key_insights', [])
             result['recommendations'] = ai_json.get('recommendations', [])
+            result['dataset_description'] = ai_json.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
             
             # Save to cache
             with open(cache_file, 'w', encoding='utf-8') as f:
-                json.dump({'key_insights': result['key_insights'], 'recommendations': result['recommendations']}, f)
+                json.dump({
+                    'key_insights': result['key_insights'], 
+                    'recommendations': result['recommendations'],
+                    'dataset_description': result['dataset_description']
+                }, f)
         except Exception as e:
             logger.error(f"OpenAI analysis failed: {e}")
             # Set flag to skip future API calls during this session
@@ -394,5 +446,6 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             mock_results = generate_mock_analysis(df, analysis_type, query)
             result['key_insights'] = mock_results['key_insights']
             result['recommendations'] = mock_results['recommendations']
+            result['dataset_description'] = mock_results.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed.')
     
     return result

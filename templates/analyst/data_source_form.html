@@ -37,7 +37,7 @@
                             <label for="id_source_type" class="form-label">Source Type</label>
                             <select class="form-select source-type-select" id="id_source_type" name="source_type" required onchange="toggleSourceFields(this.value)">
                                 <option value="" selected disabled>Select a source type</option>
-                                <option value="file">File Upload (CSV, Excel, JSON)</option>
+                                <option value="file">File Upload (CSV, Excel, JSON, Parquet, etc.)</option>
                             </select>
                         </div>
                         
@@ -45,7 +45,23 @@
                         <div id="file-fields" class="file-fields mb-3">
                             <label for="id_file" class="form-label">Upload File</label>
                             <input type="file" class="form-control" id="id_file" name="file">
-                            <div class="form-text">Accepted formats: CSV, Excel (.xls, .xlsx), JSON</div>
+                            <div class="form-text">Accepted formats: CSV, Excel (.xls, .xlsx), JSON, Parquet (.parquet), Feather (.feather), HDF5 (.h5, .hdf5), ORC (.orc), Pickle (.pickle)</div>
+                            
+                            <div class="mt-3">
+                                <label for="id_file_type" class="form-label">File Type</label>
+                                <select class="form-select" id="id_file_type" name="file_type">
+                                    <option value="" selected>Auto-detect from file extension</option>
+                                    <option value="csv">CSV</option>
+                                    <option value="xlsx">Excel</option>
+                                    <option value="json">JSON</option>
+                                    <option value="parquet">Parquet</option>
+                                    <option value="feather">Feather</option>
+                                    <option value="pickle">Pickle</option>
+                                    <option value="hdf">HDF5</option>
+                                    <option value="orc">ORC</option>
+                                </select>
+                                <div class="form-text">Select file type or leave as auto-detect</div>
+                            </div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
