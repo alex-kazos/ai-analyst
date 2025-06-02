@@ -19,7 +19,7 @@ from django.contrib.auth.models import User
 from .models import DataSource, Analysis, Dashboard, DashboardItem, Question
 from .forms import DataSourceForm, AnalysisForm, DashboardForm, QuestionForm
 import openai
-from langchain.sql_database import SQLDatabase
+from langchain_community.utilities import SQLDatabase
 from langchain.chains import create_sql_query_chain
 from django.views.decorators.http import require_GET
 
