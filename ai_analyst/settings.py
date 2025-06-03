@@ -26,7 +26,7 @@ INSTALLED_APPS = [
     'analyst',
     'corsheaders',
     'crispy_forms',
-    
+    'crispy_bootstrap5',
     # Authentication apps
     'django.contrib.sites',
     'allauth',
@@ -34,6 +34,10 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
 ]
+
+# Crispy Forms Configuration
+CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
+CRISPY_TEMPLATE_PACK = 'bootstrap5'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -121,8 +125,6 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600
 # OpenAI API Key
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
-# Crispy Forms
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 # Django AllAuth Settings
 SITE_ID = 1
@@ -156,3 +158,7 @@ SOCIALACCOUNT_PROVIDERS = {
         }
     }
 }
+
+# Skip the intermediate social login confirmation page
+SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_ADAPTER = 'allauth.socialaccount.adapter.DefaultSocialAccountAdapter'

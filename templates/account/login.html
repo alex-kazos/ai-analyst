@@ -61,16 +61,11 @@
                 
                 <div class="d-grid gap-2">
                     {% load socialaccount %}
-                    {% get_providers as socialaccount_providers %}
-                    {% if 'google' in socialaccount_providers %}
-                        <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger">
-                            <i class="fab fa-google me-2"></i>Sign in with Google
-                        </a>
-                    {% else %}
-                        <a href="#" class="btn btn-outline-danger disabled" title="Google sign-in not configured">
-                            <i class="fab fa-google me-2"></i>Sign in with Google (Not configured)
-                        </a>
-                    {% endif %}
+                    
+                    <!-- Simple direct Google sign-in link -->
+                    <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger">
+                        <i class="fab fa-google me-2"></i>Sign in with Google
+                    </a>
                 </div>
             </div>
             <div class="card-footer text-center py-3">

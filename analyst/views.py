@@ -26,11 +26,12 @@ from django.views.decorators.http import require_GET
 # Set up OpenAI API key
 openai.api_key = settings.OPENAI_API_KEY
 
+@login_required
 @require_GET
 def api_data_source_ai_analysis(request, pk):
     from .ai_utils import perform_ai_analysis
     import json
-    data_source = get_object_or_404(DataSource, pk=pk)
+    data_source = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     try:
         # Load data
         if data_source.source_type == 'file' and data_source.file:
@@ -66,11 +67,13 @@ def home(request):
     return render(request, 'analyst/home.html')
 
 # Data Source Views
+@login_required
 def data_source_list(request):
-    # Show all data sources without user filtering
-    data_sources = DataSource.objects.all()
+    # Only show data sources created by the current user
+    data_sources = DataSource.objects.filter(created_by=request.user)
     return render(request, 'analyst/data_source_list.html', {'data_sources': data_sources})
 
+@login_required
 def data_source_create(request):
     if request.method == 'POST':
         form = DataSourceForm(request.POST, request.FILES)
@@ -84,23 +87,8 @@ def data_source_create(request):
                 _, ext = os.path.splitext(file.name)
                 data_source.file_type = ext.lower().strip('.')
             
-            # Set created_by to first admin user if user is not authenticated
-            if request.user.is_authenticated:
-                data_source.created_by = request.user
-            else:
-                # Get the first admin user as a fallback
-                admin_user = User.objects.filter(is_superuser=True).first()
-                if not admin_user:
-                    # If no admin, create a system user
-                    admin_user, created = User.objects.get_or_create(
-                        username='system',
-                        defaults={
-                            'is_staff': True,
-                            'is_superuser': True,
-                            'email': 'system@example.com'
-                        }
-                    )
-                data_source.created_by = admin_user
+            # Always set created_by to the current authenticated user
+            data_source.created_by = request.user
             
             data_source.save()
             messages.success(request, 'Data source created successfully!')
@@ -114,10 +102,11 @@ from django.views.decorators.http import require_POST
 from django.urls import reverse
 from django.http import JsonResponse
 
+@login_required
 @require_POST
 def data_source_rename(request, pk):
     from .models import DataSource
-    ds = get_object_or_404(DataSource, pk=pk)
+    ds = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     new_name = request.POST.get('name', '').strip()
     if not new_name:
         return JsonResponse({'success': False, 'error': 'Name cannot be empty.'}, status=400)
@@ -125,19 +114,21 @@ def data_source_rename(request, pk):
     ds.save()
     return JsonResponse({'success': True, 'name': ds.name})
 
+@login_required
 @require_POST
 def data_source_update_description(request, pk):
     from .models import DataSource
-    ds = get_object_or_404(DataSource, pk=pk)
+    ds = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     desc = request.POST.get('description', '').strip()
     ds.description = desc
     ds.save()
     return JsonResponse({'success': True, 'description': ds.description or 'No description provided'})
 
+@login_required
 @require_POST
 def data_source_update_file(request, pk):
     from .models import DataSource
-    ds = get_object_or_404(DataSource, pk=pk)
+    ds = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     file = request.FILES.get('file')
     if not file:
         return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
@@ -145,8 +136,9 @@ def data_source_update_file(request, pk):
     ds.save()
     return JsonResponse({'success': True})
 
+@login_required
 def data_source_edit(request, pk):
-    data_source = get_object_or_404(DataSource, pk=pk)
+    data_source = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     if request.method == 'POST':
         form = DataSourceForm(request.POST, request.FILES, instance=data_source)
         if form.is_valid():
@@ -157,19 +149,21 @@ def data_source_edit(request, pk):
         form = DataSourceForm(instance=data_source)
     return render(request, 'analyst/data_source_form.html', {'form': form, 'data_source': data_source, 'edit_mode': True})
 
+@login_required
 def data_source_delete(request, pk):
     from .models import DataSource
     from django.contrib import messages
     from django.shortcuts import redirect, get_object_or_404
     if request.method == 'POST':
-        ds = get_object_or_404(DataSource, pk=pk)
+        ds = get_object_or_404(DataSource, pk=pk, created_by=request.user)
         ds.delete()
         messages.success(request, 'Data source deleted successfully!')
         return redirect('data_source_list')
     return redirect('data_source_detail', pk=pk)
 
+@login_required
 def data_source_detail(request, pk):
-    data_source = get_object_or_404(DataSource, pk=pk)
+    data_source = get_object_or_404(DataSource, pk=pk, created_by=request.user)
     
     # Get data preview
     preview_data = None
@@ -337,8 +331,9 @@ def get_connection_string(data_source):
         raise ValueError(f"Unsupported database type: {data_source.source_type}")
 
 # Analysis Views
+@login_required
 def analysis_create(request, data_source_id):
-    data_source = get_object_or_404(DataSource, pk=data_source_id)
+    data_source = get_object_or_404(DataSource, pk=data_source_id, created_by=request.user)
     
     if request.method == 'POST':
         form = AnalysisForm(request.POST)
@@ -1172,8 +1167,9 @@ def run_custom_analysis(df, analysis):
     }
 
 # Q&A Views
+@login_required
 def question_form(request, data_source_id):
-    data_source = get_object_or_404(DataSource, pk=data_source_id)
+    data_source = get_object_or_404(DataSource, pk=data_source_id, created_by=request.user)
     
     if request.method == 'POST':
         form = QuestionForm(request.POST)
@@ -1369,33 +1365,18 @@ Only return the SQL query without any explanation or comments."""
         }
 
 # Dashboard Views (placeholder for now)
+@login_required
 def dashboard_list(request):
-    dashboards = Dashboard.objects.all()
+    dashboards = Dashboard.objects.filter(created_by=request.user)
     return render(request, 'analyst/dashboard_list.html', {'dashboards': dashboards})
 
+@login_required
 def dashboard_create(request):
     if request.method == 'POST':
         form = DashboardForm(request.POST)
         if form.is_valid():
             dashboard = form.save(commit=False)
-            
-            # Set created_by to first admin user if user is not authenticated
-            if request.user.is_authenticated:
-                dashboard.created_by = request.user
-            else:
-                # Get the first admin user as a fallback
-                admin_user = User.objects.filter(is_superuser=True).first()
-                if not admin_user:
-                    # If no admin, create or get the system user
-                    admin_user, created = User.objects.get_or_create(
-                        username='system',
-                        defaults={
-                            'is_staff': True,
-                            'is_superuser': True,
-                            'email': 'system@example.com'
-                        }
-                    )
-                dashboard.created_by = admin_user
+            dashboard.created_by = request.user
             
             dashboard.save()
             return redirect('dashboard_detail', pk=dashboard.pk)
@@ -1404,8 +1385,9 @@ def dashboard_create(request):
     
     return render(request, 'analyst/dashboard_form.html', {'form': form})
 
+@login_required
 def dashboard_detail(request, pk):
-    dashboard = get_object_or_404(Dashboard, pk=pk)
+    dashboard = get_object_or_404(Dashboard, pk=pk, created_by=request.user)
     items = dashboard.items.all()
     
     # Handle POST request for adding analysis to dashboard
@@ -1467,9 +1449,9 @@ def dashboard_detail(request, pk):
         except Exception as e:
             messages.error(request, f'Error adding analysis to dashboard: {str(e)}')
     
-    # Always get all available data sources for the widget modal
-    # This ensures the dropdown is never empty
-    data_sources = DataSource.objects.all()
+    # Always get user's data sources for the widget modal
+    # This ensures the dropdown only shows sources the user has access to
+    data_sources = DataSource.objects.filter(created_by=request.user)
     
     # Create sample data source if none exist (for demo purposes)
     if not data_sources.exists():
@@ -1493,6 +1475,7 @@ def dashboard_detail(request, pk):
 
 # API endpoints for AJAX calls
 @csrf_exempt
+@login_required
 @login_required
 def api_data_preview(request, pk):
     data_source = get_object_or_404(DataSource, pk=pk, created_by=request.user)

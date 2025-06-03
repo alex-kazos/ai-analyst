@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{% trans "E-mail Addresses" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0"><i class="fas fa-envelope me-2"></i>{% trans "E-mail Addresses" %}</h3>
+                </div>
+                
+                <div class="card-body">
+                    {% if user.emailaddress_set.all %}
+                    <p class="text-muted mb-4">{% trans 'The following e-mail addresses are associated with your account:' %}</p>
+                    
+                    <form action="{% url 'account_email' %}" class="email_list" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="list-group mb-4">
+                            {% for emailaddress in user.emailaddress_set.all %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="form-check">
+                                    <input id="email_radio_{{forloop.counter}}" type="radio" name="email" 
+                                           {% if emailaddress.primary or user.emailaddress_set.count == 1 %}checked="checked"{% endif %} 
+                                           value="{{emailaddress.email}}" class="form-check-input">
+                                    <label for="email_radio_{{forloop.counter}}" class="form-check-label">{{ emailaddress.email }}</label>
+                                </div>
+                                
+                                <div>
+                                    {% if emailaddress.verified %}
+                                    <span class="badge bg-success">{% trans "Verified" %}</span>
+                                    {% else %}
+                                    <span class="badge bg-warning text-dark">{% trans "Unverified" %}</span>
+                                    {% endif %}
+                                    
+                                    {% if emailaddress.primary %}
+                                    <span class="badge bg-info">{% trans "Primary" %}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="btn-group mb-4" role="group">
+                            <button type="submit" name="action_primary" class="btn btn-outline-primary">{% trans 'Make Primary' %}</button>
+                            <button type="submit" name="action_send" class="btn btn-outline-info">{% trans 'Re-send Verification' %}</button>
+                            <button type="submit" name="action_remove" class="btn btn-outline-danger">{% trans 'Remove' %}</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <p class="alert alert-warning">{% trans 'You currently do not have any e-mail address set up. You should add an e-mail address so you can receive notifications, reset your password, etc.' %}</p>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <h4 class="mb-3">{% trans "Add E-mail Address" %}</h4>
+                    
+                    <form method="post" action="{% url 'account_email' %}" class="add_email">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">{% trans "E-mail" %}</label>
+                            <input type="email" name="email" placeholder="{% trans 'E-mail address' %}" id="id_email" class="form-control" required>
+                        </div>
+                        
+                        <button name="action_add" type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus me-1"></i>{% trans "Add E-mail" %}
+                        </button>
+                    </form>
+                </div>
+                
+                <div class="card-footer text-center">
+                    <a href="{% url 'account_change_password' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-key me-1"></i>{% trans "Change Password" %}
+                    </a>
+                    <a href="{% url 'home' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-home me-1"></i>{% trans "Back to Home" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_body %}
+<script type="text/javascript">
+(function() {
+    var message = "{% trans 'Do you really want to remove the selected e-mail address?' %}";
+    var actions = document.getElementsByName('action_remove');
+    if (actions.length) {
+        actions[0].addEventListener("click", function(e) {
+            if (!confirm(message)) {
+                e.preventDefault();
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}
