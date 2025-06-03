@@ -1,0 +1,7 @@
+{% load socialaccount %}
+
+<div class="d-grid gap-2">
+  <a href="{% provider_login_url 'google' process='login' %}" class="btn btn-outline-danger">
+    <i class="fab fa-google me-2"></i>Sign in with Google
+  </a>
+</div>

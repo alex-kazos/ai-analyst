@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% load i18n %}
+{% load account socialaccount %}
+
+{% block title %}Login - AI Analyst{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-lg border-0 rounded-lg mt-5">
+            <div class="card-header bg-primary text-white text-center">
+                <h3 class="my-3"><i class="fas fa-sign-in-alt me-2"></i>Login</h3>
+            </div>
+            <div class="card-body p-4 p-md-5">
+                {% if messages %}
+                <div class="alert alert-info" role="alert">
+                    {% for message in messages %}
+                    <p{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <form class="login" method="POST" action="{% url 'account_login' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_login" class="form-label">Username or Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-user"></i></span>
+                            <input type="text" name="login" class="form-control" id="id_login" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" name="password" class="form-control" id="id_password" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="remember" class="form-check-input" id="id_remember">
+                        <label class="form-check-label" for="id_remember">Remember me</label>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">Login</button>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'account_reset_password' %}" class="text-muted">Forgot your password?</a>
+                    </div>
+                    
+                    {% if redirect_field_value %}
+                    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                    {% endif %}
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="text-center mb-3">
+                    <p>Or login with:</p>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    {% load socialaccount %}
+                    
+                    <!-- Simple direct Google sign-in link -->
+                    <a href="{% provider_login_url 'google' %}" class="btn btn-outline-danger">
+                        <i class="fab fa-google me-2"></i>Sign in with Google
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer text-center py-3">
+                <a href="{% url 'account_signup' %}" class="btn btn-outline-primary w-100">
+                    <i class="fas fa-user-plus me-2"></i>Need an account? Sign up here
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
