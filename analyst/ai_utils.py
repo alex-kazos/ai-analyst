@@ -1,6 +1,9 @@
 import os
 import pandas as pd
 import json
+import os
+import pandas as pd
+import json
 import openai
 import logging
 import numpy as np
@@ -11,43 +14,28 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from .env if present (Docker passes them directly)
+load_dotenv(override=True)
 
 # Configure OpenAI API key from environment variable
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
-    logger.warning("No OpenAI API key found. Please set OPENAI_API_KEY in your .env file.")
-    skip_api_calls = True
+    logger.warning("No OpenAI API key found. Please set OPENAI_API_KEY in your .env file or environment.")
 org_id = os.getenv("OPENAI_ORG_ID")
+base_url = os.getenv("OPENAI_BASE_URL")
 
 # Initialize OpenAI client
 client = None
-
-# Flag to indicate whether to attempt OpenAI API calls or skip entirely
 skip_api_calls = False
-
 try:
     if api_key:
         logger.info("OpenAI API key found, attempting to initialize client")
-        
-        # Set the API key for the legacy openai library
-        openai.api_key = api_key
-        
-        # Set organization if available
-        if org_id:
-            openai.organization = org_id
-            logger.info("OpenAI organization ID set successfully")
-        
-        # Initialize the client
         client_kwargs = {"api_key": api_key}
-        
-        # Add base URL if configured
-        base_url = os.getenv("OPENAI_BASE_URL")
+        if org_id:
+            client_kwargs["organization"] = org_id
+            logger.info("OpenAI organization ID set successfully")
         if base_url:
             client_kwargs["base_url"] = base_url
-            
-        # Create the client but don't test it yet - we'll handle errors when actually making calls
         client = openai.OpenAI(**client_kwargs)
         logger.info("OpenAI client initialized successfully")
     else:
@@ -173,6 +161,7 @@ def generate_mock_analysis(df, analysis_type=None, query=None):
     return mock_result
 
 def perform_ai_analysis(df, analysis_type=None, query=None):
+    global skip_api_calls
     """
     Perform AI analysis on a dataframe:
     - Use OpenAI for insights/recommendations if available, fallback to local if not.
@@ -395,7 +384,7 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
         except Exception as e:
             logger.error(f"Failed to load OpenAI insights cache: {e}")
     
-    if not cache_hit:
+    if not cache_hit and client and not skip_api_calls:
         try:
             logger.info("Generating new insights with OpenAI API")
             sample_data = df.head(5).to_string()
@@ -403,49 +392,37 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             column_info = "\n".join([f"{col} ({df[col].dtype}): {df[col].nunique()} unique values" for col in df.columns])
             system_prompt = "You are an expert data analyst. Given a dataset, generate a concise dataset description, 3 key insights, and 3 recommendations. Return a JSON with keys: dataset_description, key_insights, recommendations."
             user_prompt = f"Sample data:\n{sample_data}\n\nData summary:\n{data_info}\n\nColumns:\n{column_info}"
-            
-            # Use a newer model that supports JSON mode
+
             response = client.chat.completions.create(
-                model="gpt-4o",  # Use newer model
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                response_format={"type": "json_object"}  # Request JSON response
+                response_format={"type": "json_object"}
             )
-            
             result_text = response.choices[0].message.content.strip()
+            logger.info(result_text)
             logger.info(f"Received OpenAI response with length: {len(result_text)}")
-            
-            # Remove code block markers if present
             if result_text.startswith("```json"):
                 result_text = result_text[7:]
             if result_text.endswith("```"):
                 result_text = result_text[:-3]
-                
-            # Parse the JSON response
             ai_json = json.loads(result_text)
             result['key_insights'] = ai_json.get('key_insights', [])
             result['recommendations'] = ai_json.get('recommendations', [])
             result['dataset_description'] = ai_json.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
-            
-            # Save to cache
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump({
-                    'key_insights': result['key_insights'], 
+                    'key_insights': result['key_insights'],
                     'recommendations': result['recommendations'],
                     'dataset_description': result['dataset_description']
                 }, f)
         except Exception as e:
             logger.error(f"OpenAI analysis failed: {e}")
-            # Set flag to skip future API calls during this session
-            global skip_api_calls
             skip_api_calls = True
-            
-            # Fallback to mock analysis if API call fails
             mock_results = generate_mock_analysis(df, analysis_type, query)
             result['key_insights'] = mock_results['key_insights']
             result['recommendations'] = mock_results['recommendations']
             result['dataset_description'] = mock_results.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed.')
-    
     return result

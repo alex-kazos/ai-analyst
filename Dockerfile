@@ -13,6 +13,9 @@ RUN apt-get update && \
     apt-get install -y gcc default-libmysqlclient-dev pkg-config build-essential && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy .env file
+COPY .env /app/.env
+
 # Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --upgrade pip \

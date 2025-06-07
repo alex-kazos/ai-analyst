@@ -220,53 +220,60 @@
         </div>
         <div class="card-body">
             <div id="aiInsights">
-                <!-- AI insights will be loaded here -->
-                <div class="d-flex align-items-center">
-                    <div class="spinner-border text-primary me-3" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <div>
-                        <h5 class="mb-1">Generating insights...</h5>
-                        <p class="mb-0 text-muted">AI is analyzing your data to discover patterns and insights.</p>
-                    </div>
-                </div>
-            </div>
-            <div id="aiInsightsResult" class="mt-3" style="display: none;">
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-lightbulb text-warning me-2"></i>Key Findings</h5>
-                                <ul class="list-unstyled mb-0" id="keyFindings">
-                                    <li><i class="fas fa-check-circle text-success me-2"></i>Loading findings...</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-chart-pie text-primary me-2"></i>Data Composition</h5>
-                                <p class="card-text" id="dataComposition">Analyzing data composition...</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Potential Issues</h5>
-                                <ul class="list-unstyled mb-0" id="dataIssues">
-                                    <li><i class="fas fa-info-circle text-info me-2"></i>Checking for issues...</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Spinner shown while loading -->
+    <div id="aiInsights-loading" class="d-flex align-items-center">
+        <div class="spinner-border text-primary me-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <div>
+            <h5 class="mb-1">Generating insights...</h5>
+            <p class="mb-0 text-muted">AI is analyzing your data to discover patterns and insights.</p>
         </div>
     </div>
+    <!-- Insights content will be rendered here -->
+    <div id="aiInsights-content" style="display:none;"></div>
+</div>
 
-    <!-- Automatic Visualizations -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Replace with your actual API endpoint and data source ID
+    var dataSourceId = "{{ data_source.id }}";
+    var insightsUrl = "/api/get_insights/" + dataSourceId + "/";
+
+    fetch(insightsUrl)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('aiInsights-loading').style.display = 'none';
+            var contentDiv = document.getElementById('aiInsights-content');
+            contentDiv.style.display = 'block';
+
+            // Build the HTML for insights
+            let html = '';
+            if (data.dataset_description) {
+                html += `<h6 class="fw-bold">Dataset Description</h6><p>${data.dataset_description}</p>`;
+            }
+            if (data.key_insights && data.key_insights.length) {
+                html += `<h6 class="fw-bold mt-3">Key Insights</h6><ul>`;
+                data.key_insights.forEach(insight => {
+                    html += `<li>${insight}</li>`;
+                });
+                html += `</ul>`;
+            }
+            if (data.recommendations && data.recommendations.length) {
+                html += `<h6 class="fw-bold mt-3">Recommendations</h6><ul>`;
+                data.recommendations.forEach(rec => {
+                    html += `<li>${rec}</li>`;
+                });
+                html += `</ul>`;
+            }
+            contentDiv.innerHTML = html;
+        })
+        .catch(error => {
+            document.getElementById('aiInsights-loading').innerHTML = "<span class='text-danger'>Failed to load insights.</span>";
+            console.error("Error loading insights:", error);
+        });
+});
+</script>
     <h2 class="h4 mb-3">Automatic Visualizations</h2>
     <style>
     /* Ensure charts stay in frame and are visually balanced */
@@ -885,17 +892,19 @@ function saveFileUpdate() {
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                // Process column data
+                console.log('API response:', data); // Debug log to see the data structure
+                
+                // Process column data (if available)
                 const columnTypes = analyzeColumnTypes(data.column_info || {});
                 updateColumnStatistics(columnTypes);
                 
-                // Dropdown for visualizations
+                // Dropdown for visualizations (if available)
                 numericColumns = data.numeric_columns || [];
                 selectedColumn = data.selected_column;
                 renderDropdown(numericColumns, selectedColumn);
                 
-                // Store all visualizations
-                allVisualizations = data.visualizations;
+                // Store all visualizations (if available)
+                allVisualizations = data.visualizations || {};
                 
                 // Render charts for selected column
                 if (allVisualizations && allVisualizations[selectedColumn]) {
@@ -904,13 +913,29 @@ function saveFileUpdate() {
                 
                 // AI Insights
                 let insightHtml = '';
-                if (data.key_insights && data.key_insights.length > 0) {
+                
+                // Display dataset description if available
+                if (data.dataset_description) {
+                    insightHtml += `<div class="alert alert-info mb-4">
+                        <h5 class="alert-heading"><i class="fas fa-database me-2"></i>Dataset Overview</h5>
+                        <p>${data.dataset_description}</p>
+                    </div>`;
+                }
+                
+                // Display key insights if available
+                if (data.insights && data.insights.length > 0) {
+                    insightHtml += '<h5 class="mt-3"><i class="fas fa-lightbulb text-warning me-2"></i>Key Insights</h5>' + 
+                                 '<ul class="list-group list-group-flush">' + 
+                                 data.insights.map(i => `<li class="list-group-item">${i}</li>`).join('') + 
+                                 '</ul>';
+                } else if (data.key_insights && data.key_insights.length > 0) {
                     insightHtml += '<h5 class="mt-3"><i class="fas fa-lightbulb text-warning me-2"></i>Key Insights</h5>' + 
                                  '<ul class="list-group list-group-flush">' + 
                                  data.key_insights.map(i => `<li class="list-group-item">${i}</li>`).join('') + 
                                  '</ul>';
                 }
                 
+                // Display recommendations if available
                 if (data.recommendations && data.recommendations.length > 0) {
                     insightHtml += '<h5 class="mt-4"><i class="fas fa-clipboard-list text-primary me-2"></i>Recommendations</h5>' + 
                                  '<ul class="list-group list-group-flush">' + 
@@ -946,7 +971,6 @@ function saveFileUpdate() {
             }
         });
     });
-</script>
 </script>
 {% endblock %}
 
