@@ -402,7 +402,6 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
                 response_format={"type": "json_object"}
             )
             result_text = response.choices[0].message.content.strip()
-            logger.info(result_text)
             logger.info(f"Received OpenAI response with length: {len(result_text)}")
             if result_text.startswith("```json"):
                 result_text = result_text[7:]
@@ -412,6 +411,9 @@ def perform_ai_analysis(df, analysis_type=None, query=None):
             result['key_insights'] = ai_json.get('key_insights', [])
             result['recommendations'] = ai_json.get('recommendations', [])
             result['dataset_description'] = ai_json.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
+            logger.info(f"Generated insights: {result['key_insights']}")
+            logger.info(f"Generated recommendations: {result['recommendations']}")
+            logger.info(f"Generated dataset description: {result['dataset_description']}")
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'key_insights': result['key_insights'],
