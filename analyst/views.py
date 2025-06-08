@@ -52,12 +52,12 @@ def api_data_source_ai_analysis(request, pk):
         selected_column = request.GET.get('column')
         ai_result = perform_ai_analysis(df, analysis_type="quick_ai", query=selected_column)
         return JsonResponse({
-            "insights": ai_result.get('key_insights', []),
+            "dataset_description": ai_result.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.'),
+            "key_insights": ai_result.get('key_insights', []),
             "recommendations": ai_result.get('recommendations', []),
             "visualizations": ai_result.get('visualizations', []),
             "numeric_columns": ai_result.get('numeric_columns', []),
             "selected_column": ai_result.get('selected_column'),
-            "dataset_description": ai_result.get('dataset_description', 'This dataset contains various metrics and indicators that have been analyzed to identify key patterns and trends.')
         })
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)

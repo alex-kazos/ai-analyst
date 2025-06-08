@@ -1,6 +1,6 @@
 Django==5.2.1
 pandas==2.2.3
-numpy==2.2.6
+numpy==1.26.4
 scikit-learn==1.6.1
 matplotlib==3.10.3
 plotly==6.1.2
@@ -11,10 +11,13 @@ SQLAlchemy==2.0.41
 supabase==2.15.2
 openai==1.82.1
 django-crispy-forms==2.4
+crispy-bootstrap5==2024.2
+django-allauth==0.61.1
 pylint==3.3.7
 mysqlclient==2.2.7
 django-cors-headers==4.7.0
-langchain==0.3.25
+langchain
+langchain-community
 jinjasql==0.1.8
 
 # Additional file format support

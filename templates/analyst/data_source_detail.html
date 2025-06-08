@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}{{ data_source.name }} - AI Analyst{% endblock %}
+{% block title %}{{ data_source.name }} - Data Source | AI Analyst{% endblock %}
+
+{% block head_extras %}
+<!-- Make sure Chart.js is included -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -215,12 +220,15 @@
 
     <!-- AI Insights -->
     <div class="card shadow-sm mb-4">
-        <div class="card-header bg-white">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-robot me-2 text-primary"></i>AI-Generated Insights</h5>
+            <button id="refreshAiInsightsBtn" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-sync-alt me-1"></i>Refresh
+            </button>
         </div>
         <div class="card-body">
-            <div id="aiInsights">
-                <!-- AI insights will be loaded here -->
+            <div id="aiInsightsLoading">
+                <!-- AI insights loading indicator -->
                 <div class="d-flex align-items-center">
                     <div class="spinner-border text-primary me-3" role="status">
                         <span class="visually-hidden">Loading...</span>
@@ -231,87 +239,36 @@
                     </div>
                 </div>
             </div>
-            <div id="aiInsightsResult" class="mt-3" style="display: none;">
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-lightbulb text-warning me-2"></i>Key Findings</h5>
-                                <ul class="list-unstyled mb-0" id="keyFindings">
-                                    <li><i class="fas fa-check-circle text-success me-2"></i>Loading findings...</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-chart-pie text-primary me-2"></i>Data Composition</h5>
-                                <p class="card-text" id="dataComposition">Analyzing data composition...</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card h-100 bg-light border-0">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Potential Issues</h5>
-                                <ul class="list-unstyled mb-0" id="dataIssues">
-                                    <li><i class="fas fa-info-circle text-info me-2"></i>Checking for issues...</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div id="aiInsightsContent" style="display: none;">
+                <!-- This is where the generated content will appear -->
             </div>
         </div>
     </div>
-
     <!-- Automatic Visualizations -->
-    <h2 class="h4 mb-3">Automatic Visualizations</h2>
-    <style>
-    /* Ensure charts stay in frame and are visually balanced */
-    #autoVisualizations .card-body {
-        min-height: 340px;
-    }
-    .visualization-canvas-container {
-        min-width: 280px;
-        max-width: 48%;
-        height: 300px;
-        margin-bottom: 1rem;
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        justify-content: flex-start;
-    }
-    .visualization-canvas-container canvas {
-        height: 250px !important;
-        max-height: 250px;
-        width: 100% !important;
-        max-width: 100%;
-    }
-    @media (max-width: 900px) {
-        .visualization-canvas-container {
-            max-width: 100%;
-        }
-    }
-    </style>
-    <div id="autoVisualizations" class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Automatic Visualizations</h5>
+            <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-primary"></i>Automatic Visualizations</h5>
             <div>
-                <select id="visualizationColumnDropdown" class="form-select form-select-sm" style="width:auto; display:inline-block;"></select>
+                <select id="visualizationColumnDropdown" class="form-select form-select-sm" style="width:auto; min-width:150px;"></select>
             </div>
         </div>
-        <div class="card-body" id="visualizationCharts">
-            <div class="d-flex flex-wrap justify-content-between">
-                <div class="visualization-canvas-container me-3">
-                    <h6 class="text-center">Distribution</h6>
-                    <canvas id="distributionChart"></canvas>
+        <div class="card-body">
+            <!-- Loading indicator -->
+            <div id="chartLoadingIndicator" class="text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
                 </div>
-                <div class="visualization-canvas-container">
-                    <h6 class="text-center">Values per Column</h6>
-                    <canvas id="valueCountsChart"></canvas>
-                </div>
+                <p class="mb-0">Loading visualizations...</p>
+            </div>
+            
+            <!-- No data message -->
+            <div id="noDataMessage" class="alert alert-info" style="display:none;">
+                <i class="fas fa-info-circle me-2"></i>Please select a column to visualize or try a different dataset.
+            </div>
+            
+            <!-- Chart container -->
+            <div id="chartContainer" style="height:380px; width:100%; display:none;">
+                <canvas id="visualizationChart"></canvas>
             </div>
         </div>
     </div>
@@ -533,165 +490,181 @@ function saveFileUpdate() {
 }
 </script>
 <script>
+    // Global variables for visualizations
+    const dataSourceId = {{ data_source.id }};
+    let numericColumns = [];
+    let selectedColumn = null;
+    let allVisualizations = {};
+    let barChart = null; // Store chart instance for updates
     let distributionChart = null;
     let valueCountsChart = null;
     let scatterChart = null;
     
     // Function to handle deletion of an analysis
     function showDeleteAnalysisModal(analysisId, analysisName) {
+        document.getElementById('deleteAnalysisId').value = analysisId;
         document.getElementById('analysisNameToDelete').textContent = analysisName;
-        document.getElementById('deleteAnalysisForm').action = `/analysis/${analysisId}/delete/`;
-        
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteAnalysisModal'));
         deleteModal.show();
     }
     
-    // Function to show the data source deletion modal
     function showDeleteDataSourceModal() {
         const deleteModal = new bootstrap.Modal(document.getElementById('deleteDataSourceModal'));
         deleteModal.show();
     }
-    let numericColumns = [];
-    let selectedColumn = null;
-    let allVisualizations = {};
-    const dataSourceId = {{ data_source.id }};
 
-    function renderDropdown(columns, current) {
-        const dropdown = document.getElementById('visualizationColumnDropdown');
-        dropdown.innerHTML = '';
-        columns.forEach(col => {
-            const opt = document.createElement('option');
-            opt.value = col;
-            opt.textContent = col;
-            if (col === current) opt.selected = true;
-            dropdown.appendChild(opt);
-        });
+    // Function to render a bar chart for the selected column
+    function renderBarChart(column, visualizationData) {
+        console.log('Rendering bar chart for column:', column);
+        console.log('Visualization data:', visualizationData);
+        
+        // Show chart container, hide loading and no-data messages
+        document.getElementById('chartLoadingIndicator').style.display = 'none';
+        document.getElementById('chartContainer').style.display = 'block';
+        document.getElementById('noDataMessage').style.display = 'none';
+        
+        // Get the canvas element
+        const chartCanvas = document.getElementById('visualizationChart');
+        if (!chartCanvas) {
+            console.error('Chart canvas element not found!');
+            return;
+        }
+        
+        // If there's an existing chart, destroy it
+        if (barChart) {
+            barChart.destroy();
+        }
+        
+        // Create the chart context
+        const ctx = chartCanvas.getContext('2d');
+        
+        try {
+            // Visual debugging of the visualization data
+            console.log('Value counts structure:', JSON.stringify(visualizationData));
+            
+            // Check if we have valid data structure
+            if (!visualizationData) {
+                throw new Error('No visualization data available');
+            }
+            
+            // Try to access value_counts or create simple data if needed
+            let chartData;
+            if (visualizationData.value_counts && 
+                Array.isArray(visualizationData.value_counts.labels) && 
+                Array.isArray(visualizationData.value_counts.data)) {
+                
+                chartData = visualizationData.value_counts;
+            } else if (visualizationData.labels && visualizationData.data) {
+                // Direct format
+                chartData = {
+                    labels: visualizationData.labels,
+                    data: visualizationData.data
+                };
+            } else {
+                // No valid data structure
+                throw new Error('Invalid visualization data format');
+            }
+            
+            // Process the visualization data based on the format
+            let chartLabels = [];
+            let chartData = [];
+            
+            // Try different formats that might be in the data
+            if (visualizationData.value_counts) {
+                // Format 1: data in value_counts
+                if (visualizationData.value_counts.labels && visualizationData.value_counts.data) {
+                    // Direct labels and data arrays
+                    chartLabels = visualizationData.value_counts.labels;
+                    chartData = visualizationData.value_counts.data;
+                } else if (visualizationData.value_counts.labels && visualizationData.value_counts.datasets) {
+                    // Chart.js format with datasets array
+                    chartLabels = visualizationData.value_counts.labels;
+                    chartData = visualizationData.value_counts.datasets[0].data;
+                }
+            } else {
+                // Format 2: direct properties
+                if (visualizationData.labels && visualizationData.data) {
+                    chartLabels = visualizationData.labels;
+                    chartData = visualizationData.data;
+                }
+            }
+            
+            // Verify we have data to display
+            if (!chartLabels.length || !chartData.length) {
+                throw new Error('No valid chart data found');
+            }
+            
+            console.log('Final chart data:', { labels: chartLabels, data: chartData });
+            
+            // Define a gradient background for bars
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(54, 162, 235, 0.8)');
+            gradient.addColorStop(1, 'rgba(54, 162, 235, 0.2)');
+            
+            // Create the chart
+            barChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: `Distribution of ${column}`,
+                        data: chartData,
+                        backgroundColor: gradient,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Count: ${context.raw}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: column,
+                                font: {
+                                    size: 14
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Count',
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            console.log('Chart rendered successfully');
+        } catch (error) {
+            console.error('Error rendering chart:', error);
+            document.getElementById('chartLoadingIndicator').style.display = 'none';
+            document.getElementById('noDataMessage').style.display = 'block';
+            document.getElementById('chartContainer').style.display = 'none';
+        }
     }
 
-    function renderCharts(visualizations) {
-        // Value counts chart with improved options
-        const val = visualizations.value_counts;
-        const valCtx = document.getElementById('valueCountsChart').getContext('2d');
-        if (valueCountsChart) valueCountsChart.destroy();
-        valueCountsChart = new Chart(valCtx, {
-            type: val.type,
-            data: {
-                labels: val.labels,
-                datasets: [{
-                    label: val.title,
-                    data: val.data,
-                    backgroundColor: val.background_color,
-                    borderColor: val.border_color,
-                    borderWidth: 1
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: true, 
-                aspectRatio: 2,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: val.title,
-                        font: { size: 16 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `${context.label}: ${context.raw.toLocaleString()}`;
-                            }
-                        }
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: val.x_axis_label || 'Values'
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: val.y_axis_label || 'Count'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-        
-        // Histogram chart with improved options
-        const dist = visualizations.histogram;
-        const distCtx = document.getElementById('distributionChart').getContext('2d');
-        if (distributionChart) distributionChart.destroy();
-        distributionChart = new Chart(distCtx, {
-            type: dist.type,
-            data: {
-                labels: dist.labels,
-                datasets: [{
-                    label: dist.title,
-                    data: dist.data,
-                    backgroundColor: dist.background_color,
-                    borderColor: dist.border_color,
-                    borderWidth: 1
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: true, 
-                aspectRatio: 2,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: dist.title,
-                        font: { size: 16 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Range ${context.label}: ${context.raw.toLocaleString()} records`;
-                            }
-                        }
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: dist.x_axis_label || 'Ranges'
-                        },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 45
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: dist.y_axis_label || 'Frequency'
-                        },
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-        
-        // Scatter plot with improved tooltips and options
-        const scatter = visualizations.scatter;
-        const scatterCanvas = document.getElementById('scatterChart');
-        if (scatterCanvas) {
-            if (scatterChart) scatterChart.destroy();
             if (scatter) {
                 const scatterCtx = scatterCanvas.getContext('2d');
                 scatterChart = new Chart(scatterCtx, {
@@ -819,24 +792,11 @@ function saveFileUpdate() {
     }
 
     // Function to update the column statistics display
+    // Column statistics updater
     function updateColumnStatistics(columnTypes) {
-        // Apply special column handling
-        let allColumns = [];
-        document.querySelectorAll('#dataPreview th').forEach(th => {
-            allColumns.push(th.textContent);
-        });
-        columnTypes = hardCodeSpecialColumns(columnTypes, allColumns);
-        
-        // Update counts
-        document.getElementById('numericColsCount').textContent = columnTypes.numeric.length;
-        document.getElementById('textColsCount').textContent = columnTypes.text.length;
-        document.getElementById('dateColsCount').textContent = columnTypes.date.length;
-        
-        // Update column lists
-        const maxDisplayColumns = 5; // Maximum columns to show in each category
-        
         // Format column lists with ellipsis if too many
         function formatColumnList(columns) {
+            const maxDisplayColumns = 5;
             if (columns.length === 0) return 'None';
             
             if (columns.length <= maxDisplayColumns) {
@@ -847,60 +807,105 @@ function saveFileUpdate() {
             }
         }
         
-        // Update numeric columns list
-        const numericColsList = document.getElementById('numericColsList');
-        if (columnTypes.numeric.length > 0) {
-            numericColsList.querySelector('span').innerHTML = formatColumnList(columnTypes.numeric);
-            numericColsList.style.display = '';
-        } else {
-            numericColsList.style.display = 'none';
-        }
+        // Update counts and lists
+        document.getElementById('numericColsCount').textContent = columnTypes.numeric?.length || 0;
+        document.getElementById('textColsCount').textContent = columnTypes.text?.length || 0;
+        document.getElementById('dateColsCount').textContent = columnTypes.date?.length || 0;
         
-        // Update text columns list
-        const textColsList = document.getElementById('textColsList');
-        if (columnTypes.text.length > 0) {
-            textColsList.querySelector('span').innerHTML = formatColumnList(columnTypes.text);
-            textColsList.style.display = '';
-        } else {
-            textColsList.style.display = 'none';
-        }
+        // Update lists display
+        const elements = [
+            {id: 'numericColsList', list: columnTypes.numeric || []},
+            {id: 'textColsList', list: columnTypes.text || []},
+            {id: 'dateColsList', list: columnTypes.date || []}
+        ];
         
-        // Update date columns list
-        const dateColsList = document.getElementById('dateColsList');
-        if (columnTypes.date.length > 0) {
-            dateColsList.querySelector('span').innerHTML = formatColumnList(columnTypes.date);
-            dateColsList.style.display = '';
-        } else {
-            dateColsList.style.display = 'none';
-        }
+        elements.forEach(elem => {
+            const el = document.getElementById(elem.id);
+            if (el) {
+                if (elem.list.length > 0) {
+                    const span = el.querySelector('span');
+                    if (span) span.innerHTML = formatColumnList(elem.list);
+                    el.style.display = '';
+                } else {
+                    el.style.display = 'none';
+                }
+            }
+        });
     }
 
     function fetchAndRender() {
         let url = `/api/data-sources/${dataSourceId}/ai_analysis/`;
-        // Show spinner for insights
-        document.getElementById('aiInsights').style.display = '';
-        document.getElementById('aiInsightsResult').style.display = 'none';
+        console.log('Fetching data from URL:', url);
+        
+        // Show loading indicators
+        document.getElementById('aiInsightsLoading').style.display = 'block';
+        document.getElementById('aiInsightsContent').style.display = 'none';
+        document.getElementById('chartLoadingIndicator').style.display = 'block';
+        document.getElementById('chartContainer').style.display = 'none';
+        document.getElementById('noDataMessage').style.display = 'none';
         
         // Fetch data for visualizations and insights
         fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                // Process column data
-                const columnTypes = analyzeColumnTypes(data.column_info || {});
-                updateColumnStatistics(columnTypes);
-                
-                // Dropdown for visualizations
-                numericColumns = data.numeric_columns || [];
-                selectedColumn = data.selected_column;
-                renderDropdown(numericColumns, selectedColumn);
-                
-                // Store all visualizations
-                allVisualizations = data.visualizations;
-                
-                // Render charts for selected column
-                if (allVisualizations && allVisualizations[selectedColumn]) {
-                    renderCharts(allVisualizations[selectedColumn]);
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
                 }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Data received:', data);
+                
+                // Setup dropdown for column selection
+                console.log('Numeric columns:', data.numeric_columns);
+                console.log('Visualizations:', data.visualizations);
+                
+                numericColumns = data.numeric_columns || [];
+                selectedColumn = data.selected_column || (numericColumns.length > 0 ? numericColumns[0] : null);
+                console.log('Selected column:', selectedColumn);
+                
+                // Populate the dropdown
+                const dropdown = document.getElementById('visualizationColumnDropdown');
+                if (!dropdown) {
+                    console.error('Dropdown element not found!');
+                } else {
+                    dropdown.innerHTML = '';
+                    numericColumns.forEach(column => {
+                        const option = document.createElement('option');
+                        option.value = column;
+                        option.textContent = column;
+                        if (column === selectedColumn) {
+                            option.selected = true;
+                        }
+                        dropdown.appendChild(option);
+                    });
+                }
+                
+                // Store visualizations data
+                allVisualizations = data.visualizations || {};
+                
+                // Render chart if we have data
+                if (selectedColumn && allVisualizations[selectedColumn]) {
+                    console.log('Rendering chart for column:', selectedColumn);
+                    renderBarChart(selectedColumn, allVisualizations[selectedColumn]);
+                } else {
+                    console.warn('No visualization data available for:', selectedColumn);
+                    document.getElementById('chartLoadingIndicator').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('chartContainer').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+                document.getElementById('chartLoadingIndicator').style.display = 'none';
+                document.getElementById('noDataMessage').style.display = 'block';
+                document.getElementById('noDataMessage').innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>Error loading visualizations: ${error.message}`;
+                document.getElementById('chartContainer').style.display = 'none';
+                
+                document.getElementById('aiInsightsLoading').style.display = 'none';
+                document.getElementById('aiInsightsContent').style.display = 'block';
+                document.getElementById('aiInsightsContent').innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>Error loading AI insights. Please try again later.</div>';
+            })
                 
                 // AI Insights
                 let insightHtml = '';
@@ -935,18 +940,165 @@ function saveFileUpdate() {
             });
     }
 
+    function setupEventListeners() {
+        // Column dropdown change event
+        const dropdown = document.getElementById('visualizationColumnDropdown');
+        if (dropdown) {
+            dropdown.addEventListener('change', function() {
+                selectedColumn = this.value;
+                if (selectedColumn && allVisualizations && allVisualizations[selectedColumn]) {
+                    renderBarChart(selectedColumn, allVisualizations[selectedColumn]);
+                } else {
+                    document.getElementById('chartLoadingIndicator').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('chartContainer').style.display = 'none';
+                }
+            });
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        // Initial fetch
+        // Set up event listeners
+        setupEventListeners();
+        // Initial data fetch
         fetchAndRender();
-        // Dropdown event
-        document.getElementById('visualizationColumnDropdown').addEventListener('change', function(e) {
-            selectedColumn = e.target.value;
-            if (allVisualizations && allVisualizations[selectedColumn]) {
-                renderCharts(allVisualizations[selectedColumn]);
-            }
-        });
     });
+    
+    function setupEventListeners() {
+        // Column dropdown change event
+        const dropdown = document.getElementById('visualizationColumnDropdown');
+        if (dropdown) {
+            dropdown.addEventListener('change', function() {
+                selectedColumn = this.value;
+                if (selectedColumn && allVisualizations && allVisualizations[selectedColumn]) {
+                    renderBarChart(selectedColumn, allVisualizations[selectedColumn]);
+                } else {
+                    document.getElementById('chartLoadingIndicator').style.display = 'none';
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('chartContainer').style.display = 'none';
+                }
+            });
+        }
+        
+        // Add AI refresh button event listener
+        const refreshBtn = document.getElementById('refreshAiInsightsBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                loadAiInsights();
+            });
+        }
+    }
 </script>
+
+<!-- AI Insights Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadAiInsights();
+    
+    // Setup refresh button
+    const refreshBtn = document.getElementById('refreshAiInsightsBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', function() {
+            loadAiInsights();
+        });
+    }
+});
+
+function loadAiInsights() {
+    const dataSourceId = {{ data_source.id }};
+    const url = `/api/data-sources/${dataSourceId}/ai_analysis/`;
+    
+    // Show loading, hide content
+    document.getElementById('aiInsightsLoading').style.display = 'block';
+    document.getElementById('aiInsightsContent').style.display = 'none';
+    
+    // Fetch insights from API
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            console.log('AI insights data:', data);
+            
+            // Render AI insights
+            function renderAiInsights(data) {
+                let insightHtml = '';
+                if (data.key_insights && data.key_insights.length > 0) {
+                    // Dataset description
+                    if (data.dataset_description) {
+                        insightHtml += `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-database me-2"></i>Dataset Description</h5>
+                                    <p>${data.dataset_description}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Key insights
+                    insightHtml += `
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-lightbulb me-2"></i>Key Insights</h5>
+                                <ul class="list-group list-group-flush">
+                    `;
+                    
+                    data.key_insights.forEach(insight => {
+                        insightHtml += `<li class="list-group-item">${insight}</li>`;
+                    });
+                    
+                    insightHtml += `
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Recommendations
+                    if (data.recommendations && data.recommendations.length > 0) {
+                        insightHtml += `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title"><i class="fas fa-check-circle me-2"></i>Recommendations</h5>
+                                    <ul class="list-group list-group-flush">
+                        `;
+                        
+                        data.recommendations.forEach(rec => {
+                            insightHtml += `<li class="list-group-item">${rec}</li>`;
+                        });
+                        
+                        insightHtml += `
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                    }
+                } else {
+                    insightHtml = `
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No AI insights available for this dataset.
+                        </div>
+                    `;
+                }
+                
+                // Update the UI
+                document.getElementById('aiInsightsLoading').style.display = 'none';
+                document.getElementById('aiInsightsContent').style.display = 'block';
+                document.getElementById('aiInsightsContent').innerHTML = insightHtml;
+            }
+            
+            // Render the AI insights
+            renderAiInsights(data);
+        })
+        .catch(error => {
+            console.error('Error loading AI insights:', error);
+            document.getElementById('aiInsightsContent').innerHTML = 
+                `<div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Error loading insights: ${error.message}
+                </div>`;
+            document.getElementById('aiInsightsLoading').style.display = 'none';
+            document.getElementById('aiInsightsContent').style.display = 'block';
+        });
+}
 </script>
 {% endblock %}
 
