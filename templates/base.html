@@ -24,6 +24,9 @@
         <div class="container">
             <a class="navbar-brand" href="{% url 'home' %}">
                 <i class="fas fa-brain me-2"></i>AI Analyst
+                {% if SHOW_BETA_TAG %}
+                    <span class="beta-tag ms-2">Beta</span>
+                {% endif %}
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
