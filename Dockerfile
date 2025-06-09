@@ -14,7 +14,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy .env file
-COPY .env /app/.env
+# COPY .env /app/.env
 
 # Install Python dependencies
 COPY requirements.txt /app/
