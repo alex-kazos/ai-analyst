@@ -12,6 +12,23 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
 }
 
+/* Beta Tag Styling */
+.beta-tag {
+    display: inline-block;
+    background: linear-gradient(90deg, #ffb347 0%, #ffcc80 100%);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 2px 12px;
+    border-radius: 1rem;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+    letter-spacing: 1px;
+    box-shadow: 0 1px 3px rgba(255, 180, 71, 0.15);
+    text-transform: uppercase;
+    border: 1px solid #ffb347;
+}
+
 /* Custom navbar styling */
 .navbar-brand {
     font-weight: 700;
